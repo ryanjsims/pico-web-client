@@ -31,44 +31,44 @@
 
 namespace LUrlParser
 {
-	enum LUrlParserError
-	{
-		LUrlParserError_Ok = 0,
-		LUrlParserError_Uninitialized = 1,
-		LUrlParserError_NoUrlCharacter = 2,
-		LUrlParserError_InvalidSchemeName = 3,
-		LUrlParserError_NoDoubleSlash = 4,
-		LUrlParserError_NoAtSign = 5,
-		LUrlParserError_UnexpectedEndOfLine = 6,
-		LUrlParserError_NoSlash = 7,
-	};
+    enum LUrlParserError
+    {
+        LUrlParserError_Ok = 0,
+        LUrlParserError_Uninitialized = 1,
+        LUrlParserError_NoUrlCharacter = 2,
+        LUrlParserError_InvalidSchemeName = 3,
+        LUrlParserError_NoDoubleSlash = 4,
+        LUrlParserError_NoAtSign = 5,
+        LUrlParserError_UnexpectedEndOfLine = 6,
+        LUrlParserError_NoSlash = 7,
+    };
 
-	class ParseURL
-	{
-	public:
-		LUrlParserError errorCode_ = LUrlParserError_Uninitialized;
-		std::string scheme_;
-		std::string host_;
-		std::string port_;
-		std::string path_;
-		std::string query_;
-		std::string fragment_;
-		std::string userName_;
-		std::string password_;
+    class ParseURL
+    {
+    public:
+        LUrlParserError errorCode_ = LUrlParserError_Uninitialized;
+        std::string scheme_;
+        std::string host_;
+        std::string port_;
+        std::string path_;
+        std::string query_;
+        std::string fragment_;
+        std::string userName_;
+        std::string password_;
 
-		/// return 'true' if the parsing was successful
-		bool isValid() const { return errorCode_ == LUrlParserError_Ok; }
+        /// return 'true' if the parsing was successful
+        bool isValid() const { return errorCode_ == LUrlParserError_Ok; }
 
-		/// helper to convert the port number to int, return 'true' if the port is valid (within the 0..65535 range)
-		bool getPort(int* outPort) const;
+        /// helper to convert the port number to int, return 'true' if the port is valid (within the 0..65535 range)
+        bool getPort(int* outPort) const;
 
-		/// parse the URL
-		static ParseURL parseURL(const std::string& url);
+        /// parse the URL
+        static ParseURL parseURL(const std::string& url);
 
-		ParseURL() = default;
-	private:
-		explicit ParseURL(LUrlParserError errorCode)
-			: errorCode_(errorCode)
-		{}
-	};
+        ParseURL() = default;
+    private:
+        explicit ParseURL(LUrlParserError errorCode)
+            : errorCode_(errorCode)
+        {}
+    };
 } // namespace LUrlParser
