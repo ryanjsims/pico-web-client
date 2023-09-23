@@ -181,13 +181,34 @@ public:
         debug1("~http_client\n");
     }
 
-    void get(std::string target) {
-        send_request("GET", target);
+    void get(std::string target, std::string body = "") {
+        send_request("GET", target, body);
     }
 
     void post(std::string target, std::string body = "") {
         send_request("POST", target, body);
     }
+
+    void put(std::string target, std::string body = "") {
+        send_request("PUT", target, body);
+    }
+
+    void patch(std::string target, std::string body = "") {
+        send_request("PATCH", target, body);
+    }
+
+    void del(std::string target, std::string body = "") {
+        send_request("DELETE", target, body);
+    }
+
+    void head(std::string target, std::string body = "") {
+        send_request("HEAD", target, body);
+    }
+
+    void options(std::string target, std::string body = "") {
+        send_request("OPTIONS", target, body);
+    }
+
     void header(std::string key, std::string value) {
         current_request.add_header(key, value);
     }
