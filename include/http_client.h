@@ -52,8 +52,13 @@ class http_response {
         body,
         done
     };
+    enum class content_type {
+        text,
+        json,
+        binary
+    };
 public:
-    http_response(): status_code(0), state(parse_state::status_line) {}
+    http_response(const http_request *request = nullptr): status_code(0), state(parse_state::status_line), request(request), type(content_type::text) {}
 
     void parse(const std::string &data) {
         debug1("Parsing http response:\n");
@@ -114,10 +119,23 @@ public:
             if(iequals(key, "Content-Length")) {
                 std::from_chars(line.begin() + token_end + 2, line.end(), content_length);
             }
+            if(iequals(key, "Content-Type")) {
+                if(iequals(value, "application/json")) {
+                    type = content_type::json;
+                } else if(value.starts_with("text/")) {
+                    type = content_type::text;
+                } else {
+                    type = content_type::binary;
+                }
+            }
             break;
         }
         case parse_state::body:
-            debug("Parsing body:\n%s\n", line.data());
+            if(type != content_type::binary) {
+                debug("Parsing body:\n%s\n", line.data());
+            } else {
+                debug("Parsing body:\n(binary length %d)\n", line.size());
+            }
             body += line;
             if(body.size() == content_length) {
                 debug1("Transition to done\n");
@@ -160,6 +178,8 @@ private:
     std::string protocol, status_text, body, data;
     std::map<std::string, std::string> headers;
     parse_state state;
+    content_type type;
+    const http_request *request = nullptr;
 };
 
 class http_client {
@@ -291,13 +311,13 @@ private:
     void send_request() {
         debug("http_client::send_request (tcp = %p)\n", tcp);
         response_ready = false;
-        current_response = {};
         trace1("Adding headers\n");
         current_request.add_header("Host", host_);
         current_request.add_header("User-Agent", "pico");
         if(current_request.body_.size() > 0) {
             current_request.add_header("Content-Length", std::to_string(current_request.body_.size()));
         }
+        current_response = http_response{&current_request};
         trace1("Adding callbacks\n");
         tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
         tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
