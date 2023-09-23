@@ -17,7 +17,6 @@ bool iequals(const std::string& a, const std::string& b);
 
 class http_request {
     friend class http_client;
-    friend class https_client;
 public:
     http_request(): method_(""), target_(""), body_("") {}
     http_request(std::string method, std::string target): method_(method), target_(target), body_("") {
@@ -47,7 +46,6 @@ private:
 
 class http_response {
     friend class http_client;
-    friend class https_client;
     enum class parse_state {
         status_line,
         headers,
