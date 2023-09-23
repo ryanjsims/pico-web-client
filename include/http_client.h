@@ -1,250 +1,31 @@
 #pragma once
-#include "tcp_client.h"
-#include "tcp_tls_client.h"
+#include <functional>
 #include <string>
-#include <string_view>
-#include <charconv>
-#include <map>
-#include <vector>
 
+#include "http_request.h"
+#include "http_response.h"
 #include "LUrlParser.h"
 
-#include "logger.h"
-
-#include <algorithm>
-
-bool iequals(const std::string& a, const std::string& b);
-
-class http_request {
-    friend class http_client;
-public:
-    http_request(): method_(""), target_(""), body_("") {}
-    http_request(std::string method, std::string target): method_(method), target_(target), body_("") {
-        ready_ = true;
-    };
-    http_request(std::string method, std::string target, std::string body): method_(method), target_(target), body_(body) {
-        ready_ = true;
-    }
-
-    void add_header(std::string key, std::string value) {
-        headers[key] = value;
-    }
-
-    std::string serialize() {
-        std::string to_return = method_ + " " + target_ + " HTTP/1.1\r\n";
-        for(auto iter = headers.cbegin(); iter != headers.cend(); iter++) {
-            to_return += iter->first + ": " + iter->second + "\r\n";
-        }
-        to_return += "\r\n" + body_;
-        return to_return;
-    }
-
-    std::string method() const {
-        return method_;
-    }
-
-    std::string target() const {
-        return target_;
-    }
-
-private:
-    std::string method_, target_, body_;
-    std::map<std::string, std::string> headers;
-    bool ready_ = false;
-};
-
-class http_response {
-    friend class http_client;
-    enum class parse_state {
-        status_line,
-        headers,
-        body,
-        done
-    };
-    enum class content_type {
-        text,
-        json,
-        binary
-    };
-public:
-    http_response(const http_request *request = nullptr): status_code(0), state(parse_state::status_line), request(request), type(content_type::text) {}
-
-    void parse(const std::string &data) {
-        debug1("Parsing http response:\n");
-
-        size_t line_start = 0, line_end = data.find("\r\n");
-        while(line_end != std::string::npos && (state != parse_state::body || type != content_type::binary)) {
-            parse_line({data.begin() + line_start, data.begin() + line_end});
-            line_start = line_end + 2;
-            line_end = data.find("\r\n", line_start);
-        }
-        if(line_start < data.size() && state != parse_state::done) {
-            parse_line({data.begin() + line_start, data.end()});
-        }
-    }
-
-    void parse_line(std::string_view line) {
-        size_t token_start, token_end;
-        switch(state) {
-        case parse_state::status_line:
-            debug1("Parsing status line\n");
-            // First find the protocol, which is from the beginning to the first space
-            token_end = line.find(" ");
-            protocol = std::string(line.begin(), token_end);
-            debug("    Protocol: %s\n", protocol.c_str());
-
-            // Then parse the status code, 1 character after the first space to the second space
-            //   std::from_chars converts it to an integer
-            token_start = token_end + 1;
-            token_end = line.find(" ", token_start);
-            std::from_chars(line.begin() + token_start, line.begin() + token_end, status_code);
-            debug("    status code: %d\n", status_code);
-
-            // Then the status text is the rest of the line
-            token_start = token_end + 1;
-            status_text = std::string(line.begin() + token_start, line.end());
-            debug("    status text: %s\n", status_text.c_str());
-            state = parse_state::headers;
-            break;
-        case parse_state::headers:{
-            debug1("Parsing header\n");
-            if(line.size() == 0) {
-                debug("Empty header, transition to %s\n", only_parse_headers() ? "body" : "done");
-                if(only_parse_headers()) {
-                    state = parse_state::done;
-                } else {
-                    state = parse_state::body;
-                }
-                break;
-            }
-            token_end = line.find(": ");
-            std::string key(line.begin(), token_end);
-            std::string value(line.begin() + token_end + 2, line.end());
-            debug("        %s: %s\n", key.c_str(), value.c_str());
-            headers[key] = value;
-            if(iequals(key, "Content-Length")) {
-                std::from_chars(line.begin() + token_end + 2, line.end(), content_length);
-            }
-            if(iequals(key, "Content-Type")) {
-                if(iequals(value, "application/json")) {
-                    type = content_type::json;
-                } else if(value.starts_with("text/")) {
-                    type = content_type::text;
-                } else {
-                    type = content_type::binary;
-                }
-            }
-            break;
-        }
-        case parse_state::body:
-            if(type != content_type::binary) {
-                debug("Parsing body:\n%s\n", line.data());
-            } else {
-                debug("Parsing body:\n(binary length %d)\n", line.size());
-            }
-            body += line;
-            if(body.size() == content_length) {
-                debug1("Transition to done\n");
-                state = parse_state::done;
-            }
-            break;
-        default:
-            error1("Shouldn't happen? parse_state == done\n");
-            break;
-        }
-    }
-
-    const std::map<std::string, std::string> &get_headers() const {
-        return headers;
-    }
-
-    uint16_t status() const {
-        return status_code;
-    }
-
-    const std::string &get_status_text() const {
-        return status_text;
-    }
-
-    const std::string &get_protocol() const {
-        return protocol;
-    }
-
-    const std::string &get_body() const {
-        return body;
-    }
-
-    void add_data(std::string data) {
-        this->data += data;
-    }
-
-private:
-    uint16_t status_code;
-    int content_length = -1;
-    std::string protocol, status_text, body, data;
-    std::map<std::string, std::string> headers;
-    parse_state state;
-    content_type type;
-    const http_request *request = nullptr;
-
-    bool only_parse_headers() {
-        return content_length <= 0 || request != nullptr && request->method() == "HEAD";
-    }
-};
+class tcp_base;
 
 class http_client {
 public:
-    http_client(std::string url): host_(""), url_(url), port_(-1) {
-        init();
-    }
-
+    http_client(std::string url);
     http_client(http_client&&) = default;
-
     http_client& operator=(http_client&&) = default;
+    ~http_client();
 
-    ~http_client() {
-        if(tcp) {
-            delete tcp;
-        }
-        debug1("~http_client\n");
-    }
+    void get(std::string target, std::string body = "");
+    void post(std::string target, std::string body = "");
+    void put(std::string target, std::string body = "");
+    void patch(std::string target, std::string body = "");
+    void del(std::string target, std::string body = "");
+    void head(std::string target, std::string body = "");
+    void options(std::string target, std::string body = "");
 
-    void get(std::string target, std::string body = "") {
-        send_request("GET", target, body);
-    }
+    void header(std::string key, std::string value);
 
-    void post(std::string target, std::string body = "") {
-        send_request("POST", target, body);
-    }
-
-    void put(std::string target, std::string body = "") {
-        send_request("PUT", target, body);
-    }
-
-    void patch(std::string target, std::string body = "") {
-        send_request("PATCH", target, body);
-    }
-
-    void del(std::string target, std::string body = "") {
-        send_request("DELETE", target, body);
-    }
-
-    void head(std::string target, std::string body = "") {
-        send_request("HEAD", target, body);
-    }
-
-    void options(std::string target, std::string body = "") {
-        send_request("OPTIONS", target, body);
-    }
-
-    void header(std::string key, std::string value) {
-        current_request.add_header(key, value);
-    }
-
-    void send_request(std::string method, std::string target, std::string body = "") {
-        current_request = {method, target, body};
-        send_request();
-    }
+    void send_request(std::string method, std::string target, std::string body = "");
 
     void resend_request() {
         send_request();
@@ -263,14 +44,7 @@ public:
         user_response_callback = callback;
     }
 
-    tcp_base *release_tcp_client() {
-        tcp->on_connected([](){});
-        tcp->on_receive([](){});
-        tcp->on_closed([](err_t){});
-        tcp_base *to_return = tcp;
-        tcp = nullptr;
-        return std::move(to_return);
-    }
+    tcp_base *release_tcp_client();
 
     LUrlParser::ParseURL get_parsed_url() const {
         return URL;
@@ -286,88 +60,10 @@ private:
     LUrlParser::ParseURL URL;
     std::function<void()> user_response_callback;
 
-    bool init() {
-        debug("http_client::init Parsing URL '%s'\n", url_.c_str());
-        URL = LUrlParser::ParseURL::parseURL(url_);
-        if(!URL.isValid()) {
-            error("Invalid URL: %s\n", url_.c_str());
-            return false;
-        }
+    bool init();
+    void send_request();
 
-        host_ = URL.host_;
-        if(URL.port_.size() > 0)
-            URL.getPort(&port_);
-        debug("http_client::init got host '%s'\n", host_.c_str());
-        if(URL.scheme_ == "https" || URL.scheme_ == "wss") {
-            debug1("http_client::init creating new tcp_tls_client\n");
-            tcp = new tcp_tls_client();
-            if(port_ == -1) {
-                port_ = 443;
-            }
-        } else {
-            debug1("http_client::init creating new tcp_client\n");
-            tcp = new tcp_client();
-            if(port_ == -1) {
-                port_ = 80;
-            }
-        }
-        if(!tcp) {
-            error1("http_client::init failed to create new tcp_client\n");
-            return false;
-        }
-        return true;
-    }
-
-    void send_request() {
-        debug("http_client::send_request (tcp = %p)\n", tcp);
-        response_ready = false;
-        trace1("Adding headers\n");
-        current_request.add_header("Host", host_);
-        current_request.add_header("User-Agent", "pico");
-        if(current_request.body_.size() > 0) {
-            current_request.add_header("Content-Length", std::to_string(current_request.body_.size()));
-        }
-        current_response = http_response{&current_request};
-        trace1("Adding callbacks\n");
-        tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
-        tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
-
-        if(!tcp->initialized()) {
-            trace1("Initializing TCP\n");
-            tcp->init();
-        }
-
-        if(!tcp->connected()) {
-            trace1("Connecting TCP\n");
-            tcp->on_connected(std::bind(&http_client::tcp_connected_callback, this));
-            tcp->connect(host_, port_);
-        } else {
-            trace1("Already connected\n");
-            tcp_connected_callback();
-        }
-    }
-
-    void tcp_connected_callback() {
-        std::string serialized = current_request.serialize();
-        debug("http_client sending:\n%s\n", serialized.c_str());
-        tcp->write({(uint8_t*)serialized.c_str(), serialized.size()});
-    }
-
-    void tcp_recv_callback() {
-        std::string data;
-        data.resize(tcp->available());
-        std::span<uint8_t> span = {(uint8_t*)data.data(), data.size()};
-        tcp->read(span);
-        debug("http_client recv'd:\n%s\n", data.c_str());
-        current_response.parse(data);
-        response_ready = current_response.state == http_response::parse_state::done;
-        if(response_ready) {
-            tcp->on_receive([](){});
-            user_response_callback();
-        }
-    }
-
-    void tcp_closed_callback() {
-        debug1("http_client closed callback\n");
-    }
+    void tcp_connected_callback();
+    void tcp_recv_callback();
+    void tcp_closed_callback();
 };
