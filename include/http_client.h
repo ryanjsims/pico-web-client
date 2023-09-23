@@ -38,6 +38,15 @@ public:
         to_return += "\r\n" + body_;
         return to_return;
     }
+
+    std::string method() const {
+        return method_;
+    }
+
+    std::string target() const {
+        return target_;
+    }
+
 private:
     std::string method_, target_, body_;
     std::map<std::string, std::string> headers;
@@ -64,12 +73,12 @@ public:
         debug1("Parsing http response:\n");
 
         size_t line_start = 0, line_end = data.find("\r\n");
-        while(line_end != std::string::npos) {
+        while(line_end != std::string::npos && (state != parse_state::body || type != content_type::binary)) {
             parse_line({data.begin() + line_start, data.begin() + line_end});
             line_start = line_end + 2;
             line_end = data.find("\r\n", line_start);
         }
-        if(line_start < data.size()) {
+        if(line_start < data.size() && state != parse_state::done) {
             parse_line({data.begin() + line_start, data.end()});
         }
     }
@@ -100,14 +109,11 @@ public:
         case parse_state::headers:{
             debug1("Parsing header\n");
             if(line.size() == 0) {
-                debug("Empty header, transition to %s\n", content_length > 0 ? "body" : "done");
-                if(content_length == 0) {
+                debug("Empty header, transition to %s\n", only_parse_headers() ? "body" : "done");
+                if(only_parse_headers()) {
                     state = parse_state::done;
-                } else if(content_length > 0) {
-                    state = parse_state::body;
                 } else {
-                    error1("No content length!\n");
-                    state = parse_state::done;
+                    state = parse_state::body;
                 }
                 break;
             }
@@ -180,6 +186,10 @@ private:
     parse_state state;
     content_type type;
     const http_request *request = nullptr;
+
+    bool only_parse_headers() {
+        return content_length <= 0 || request != nullptr && request->method() == "HEAD";
+    }
 };
 
 class http_client {
