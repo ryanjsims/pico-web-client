@@ -3,7 +3,11 @@ cmake_minimum_required(VERSION 3.15)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
 
-include(lib/pico-sdk/pico_sdk_init.cmake)
+get_directory_property(hasParent PARENT_DIRECTORY)
+
+if (NOT hasParent)
+    include(lib/pico-sdk/pico_sdk_init.cmake)
+endif()
 
 project(pico-web-client)
 
