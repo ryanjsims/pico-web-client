@@ -4,7 +4,7 @@
 #include "tcp_client.h"
 #include "tcp_tls_client.h"
 
-http_client::http_client(std::string url): host_(""), url_(url), port_(-1) {
+http_client::http_client(std::string url, std::span<uint8_t> cert): host_(""), url_(url), port_(-1), cert(cert) {
     init();
 }
 
@@ -75,7 +75,7 @@ bool http_client::init() {
     debug("http_client::init got host '%s'\n", host_.c_str());
     if(URL.scheme_ == "https" || URL.scheme_ == "wss") {
         debug1("http_client::init creating new tcp_tls_client\n");
-        tcp = new tcp_tls_client();
+        tcp = new tcp_tls_client(cert);
         if(port_ == -1) {
             port_ = 443;
         }

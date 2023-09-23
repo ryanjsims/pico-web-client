@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <span>
 #include <string>
 
 #include "http_request.h"
@@ -10,7 +11,7 @@ class tcp_base;
 
 class http_client {
 public:
-    http_client(std::string url);
+    http_client(std::string url, std::span<uint8_t> cert = {});
     http_client(http_client&&) = default;
     http_client& operator=(http_client&&) = default;
     ~http_client();
@@ -56,6 +57,7 @@ private:
     http_request current_request;
     http_response current_response;
     std::string host_, url_;
+    std::span<uint8_t> cert;
     int port_;
     LUrlParser::ParseURL URL;
     std::function<void()> user_response_callback;
