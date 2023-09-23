@@ -188,6 +188,9 @@ public:
     void post(std::string target, std::string body = "") {
         send_request("POST", target, body);
     }
+    void header(std::string key, std::string value) {
+        current_request.add_header(key, value);
+    }
 
     void send_request(std::string method, std::string target, std::string body = "") {
         current_request = {method, target, body};
@@ -276,10 +279,6 @@ private:
         if(current_request.body_.size() > 0) {
             current_request.add_header("Content-Length", std::to_string(current_request.body_.size()));
         }
-        current_request.add_header("Connection", "Upgrade");
-        current_request.add_header("Upgrade", "websocket");
-        current_request.add_header("Sec-WebSocket-Key", "8xtVmuvomB2taGWDXBxVMw==");
-        current_request.add_header("Sec-WebSocket-Version", "13");
         trace1("Adding callbacks\n");
         tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
         tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));

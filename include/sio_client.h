@@ -163,6 +163,12 @@ public:
             error1("sio_client::open: http_client is nullptr\n");
             return;
         }
+
+        http->header("Connection", "Upgrade");
+        http->header("Upgrade", "websocket");
+        http->header("Sec-WebSocket-Key", "8xtVmuvomB2taGWDXBxVMw==");
+        http->header("Sec-WebSocket-Version", "13");
+
         http->get("/socket.io/" + query_string);
     }
 
