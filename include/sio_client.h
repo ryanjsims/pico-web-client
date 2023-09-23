@@ -80,7 +80,7 @@ private:
     eio_client *engine;
     std::string ns_, sid_;
     std::map<std::string, std::function<void(nlohmann::json)>> event_handlers;
-\
+
     void connect_callback(nlohmann::json body) {
         debug("sio_socket::connect_callback\n%s\n", body.dump(4).c_str());
         if(body.contains("sid")){

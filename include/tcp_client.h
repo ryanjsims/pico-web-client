@@ -14,7 +14,7 @@ class tcp_client : public tcp_base {
 public:
     tcp_client();
     bool init() override;
-    int available() const  override;
+    int available() const override;
     size_t read(std::span<uint8_t> out) override;
     bool write(std::span<const uint8_t> data) override;
     bool connect(ip_addr_t addr, uint16_t port);
