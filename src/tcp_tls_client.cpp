@@ -32,7 +32,7 @@ bool tcp_tls_client::init() {
     }
     tcp_controlblock = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
     if(tcp_controlblock == nullptr) {
-        error1("Failed to create tcp control block");
+        error1("Failed to create tcp control block\n");
         return false;
     }
     altcp_arg(tcp_controlblock, this);
