@@ -16,6 +16,7 @@ tcp_client::tcp_client()
     , remote_addr({0})
     , user_receive_callback([](){})
     , user_connected_callback([](){})
+    , user_poll_callback([](){})
     , user_closed_callback([](err_t){})
 {
     info1("Initializing DNS...\n");

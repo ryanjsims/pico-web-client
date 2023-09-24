@@ -17,6 +17,7 @@ tcp_tls_client::tcp_tls_client(std::span<uint8_t> cert)
     , remote_addr({0})
     , user_receive_callback([](){})
     , user_connected_callback([](){})
+    , user_poll_callback([](){})
     , user_closed_callback([](err_t){}) {
     if(tls_config == nullptr) {
         debug1("Creating tls_config...\n");
