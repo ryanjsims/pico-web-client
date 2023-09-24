@@ -17,6 +17,7 @@ add_library(pico_web_client
     src/iequals.cpp
     src/tcp_client.cpp
     src/tcp_tls_client.cpp
+    src/udp_client.cpp
     src/circular_buffer.cpp
     src/http_request.cpp
     src/http_response.cpp
