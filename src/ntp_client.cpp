@@ -142,3 +142,5 @@ uint32_t ntp_client::ntp_timestamp_from_time_t(time_t epoch) {
     uint32_t ntp_timestamp = htonl(seconds_since_1900);
     return ntp_timestamp;
 }
+
+void* ntp_client::rtc_cb_data = nullptr;
