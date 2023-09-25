@@ -23,4 +23,6 @@ private:
     udp_client* udp;
     std::string ntp_server;
     alarm_id_t ntp_resend_alarm;
+
+    void send_packet();
 };

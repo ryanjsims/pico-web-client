@@ -36,5 +36,6 @@ target_link_libraries(pico_web_client PRIVATE
     pico_lwip_mbedtls
     pico_mbedtls
     pico_multicore
+    hardware_rtc
 )
 target_compile_options(pico_web_client PRIVATE "-Wno-psabi")
