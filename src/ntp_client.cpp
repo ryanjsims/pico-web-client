@@ -33,7 +33,7 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
     });
 
     udp->on_receive([&](const ip_addr_t* addr, uint16_t port){
-        info("ntp_client: received packet from %d.%d.%d.%d:%d\n", ip4_addr1(addr), ip4_addr2(addr), ip4_addr3(addr), ip4_addr4(addr), port);
+        debug("ntp_client: received packet from %d.%d.%d.%d:%d\n", ip4_addr1(addr), ip4_addr2(addr), ip4_addr3(addr), ip4_addr4(addr), port);
         ip_addr_t remote_addr = udp->remote_address();
         if(ip_addr_cmp(addr, &remote_addr) && port == NTP_PORT) {
             ntp_packet packet;
@@ -51,7 +51,7 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
 
             datetime_t datetime = ntp_client::datetime_from_tm(*time_tm);
             rtc_set_datetime(&datetime);
-            
+
             #if LOG_LEVEL<=LOG_LEVEL_INFO
             char buf[256];
             datetime_to_str(buf, sizeof(buf), &datetime);
@@ -78,7 +78,7 @@ void ntp_client::sync_time(datetime_t *repeat) {
 void ntp_client::send_packet() {
     ntp_packet packet{};
     
-    info1("ntp_client: Sending ntp packet\n");
+    debug1("ntp_client: Sending ntp packet\n");
 
     ntp_resend_alarm = add_alarm_in_ms(ntp_retry_time, ntp_client::alarm_callback, this, true);
     udp->write({packet.data, NTP_MESSAGE_LEN});

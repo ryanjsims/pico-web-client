@@ -19,13 +19,13 @@ tcp_client::tcp_client()
     , user_poll_callback([](){})
     , user_closed_callback([](err_t){})
 {
-    info1("Initializing DNS...\n");
+    debug1("Initializing DNS...\n");
     dns_init();
     ip_addr_t dnsserver;
     ip4addr_aton("1.1.1.1", &dnsserver);
     dns_setserver(0, &dnsserver);
     
-    info1("Initializing TCP Client\n");
+    debug1("Initializing TCP Client\n");
     initialized_ = init();
 }
 
@@ -85,7 +85,7 @@ bool tcp_client::connect(ip_addr_t addr, uint16_t port) {
 }
 
 bool tcp_client::connect(std::string addr, uint16_t port) {
-    debug("tcp_client::connect to %s:%d\n", addr.c_str(), port);
+    info("tcp_client::connect to %s:%d\n", addr.c_str(), port);
     err_t err = dns_gethostbyname(addr.c_str(), &remote_addr, dns_callback, this);
     port_ = port;
     if(err == ERR_OK) {
@@ -111,7 +111,7 @@ bool tcp_client::connect() {
 err_t tcp_client::close(err_t reason) {
     err_t err = ERR_OK;
     if (tcp_controlblock != NULL) {
-        info1("Connection closing...\n");
+        debug1("Connection closing...\n");
         tcp_arg(tcp_controlblock, NULL);
         tcp_poll(tcp_controlblock, NULL, 0);
         tcp_sent(tcp_controlblock, NULL);
@@ -156,20 +156,20 @@ err_t tcp_client::poll_callback(void* arg, tcp_pcb* pcb) {
 
 err_t tcp_client::sent_callback(void* arg, tcp_pcb* pcb, u16_t len) {
     tcp_client *client = (tcp_client*)arg;
-    info("Sent %d bytes\n", len);
+    debug("Sent %d bytes\n", len);
     return ERR_OK;
 }
 
 err_t tcp_client::recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err) {
     tcp_client *client = (tcp_client*)arg;
-    info1("tcp_client::recv_callback\n");
+    debug1("tcp_client::recv_callback\n");
     if(p == nullptr) {
         // Connection closed
         return client->close(ERR_CLSD);
     }
 
     if(p->tot_len > 0) {
-        info("recv'ing %d bytes\n", p->tot_len);
+        debug("recv'ing %d bytes\n", p->tot_len);
         // Receive the buffer
         size_t count = 0;
         pbuf* curr = p;
@@ -253,7 +253,7 @@ void tcp_client::err_callback(void* arg, err_t err) {
 
 err_t tcp_client::connected_callback(void* arg, tcp_pcb* pcb, err_t err) {
     tcp_client *client = (tcp_client*)arg;
-    info1("tcp_client::connected_callback\n");
+    debug1("tcp_client::connected_callback\n");
     if(err != ERR_OK) {
         error1("connect failed with error code ");
         tcp_perror(err);

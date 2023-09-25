@@ -18,13 +18,13 @@ udp_client::udp_client()
     , user_receive_callback(nullptr)
     , user_connected_callback(nullptr)
 {
-    info1("Initializing DNS...\n");
+    debug1("Initializing DNS...\n");
     dns_init();
     ip_addr_t dnsserver;
     ip4addr_aton("1.1.1.1", &dnsserver);
     dns_setserver(0, &dnsserver);
     
-    info1("Initializing UDP Client\n");
+    debug1("Initializing UDP Client\n");
     initialized_ = init();
 }
 
@@ -122,7 +122,7 @@ void udp_client::dns_callback(const char* name, const ip_addr_t *addr, void* arg
 
 void udp_client::recv_callback(void* arg, udp_pcb* pcb, pbuf* p, const ip_addr_t *addr, uint16_t port) {
     udp_client *client = (udp_client*)arg;
-    info1("udp_client::recv_callback\n");
+    debug1("udp_client::recv_callback\n");
     if(p == nullptr) {
         return;
     }
