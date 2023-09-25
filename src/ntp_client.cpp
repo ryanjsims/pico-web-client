@@ -101,7 +101,14 @@ void ntp_client::dump_bytes(std::span<uint8_t> data) {
 #endif
 }
 
+int64_t reenable_rtc(alarm_id_t, void*) {
+    rtc_enable_alarm();
+    return 0;
+}
+
 void ntp_client::rtc_callback() {
+    rtc_disable_alarm();
+    add_alarm_in_ms(1500, reenable_rtc, nullptr, true);
     ntp_client* client = (ntp_client*)rtc_cb_data;
     client->sync_time();
 }
