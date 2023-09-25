@@ -7,6 +7,10 @@
 #include "ntp_packet.h"
 #include "logger.h"
 
+#if LOG_LEVEL<=LOG_LEVEL_INFO
+#include <pico/util/datetime.h>
+#endif
+
 #define NTP_PORT 123
 
 ntp_client::ntp_client(std::string server, uint32_t retry_time)
@@ -47,6 +51,12 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
 
             datetime_t datetime = ntp_client::datetime_from_tm(*time_tm);
             rtc_set_datetime(&datetime);
+            
+            #if LOG_LEVEL<=LOG_LEVEL_INFO
+            char buf[256];
+            datetime_to_str(buf, sizeof(buf), &datetime);
+            info("ntp_client: Time set to %s\n", buf);
+            #endif
         }
     });
 }
