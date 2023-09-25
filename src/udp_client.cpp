@@ -16,6 +16,7 @@ udp_client::udp_client()
     , remote_addr({0})
     , udp_controlblock(nullptr)
     , user_receive_callback(nullptr)
+    , user_connected_callback(nullptr)
 {
     info1("Initializing DNS...\n");
     dns_init();
@@ -66,11 +67,11 @@ bool udp_client::write(std::span<const uint8_t> data) {
         return false;
     }
     memcpy(p->payload, data.data(), data.size());
-    udp_send(udp_controlblock, p);
+    err_t err = udp_send(udp_controlblock, p);
     pbuf_free(p);
     cyw43_arch_lwip_end();
 
-    return true;
+    return err == ERR_OK;
 }
 
 bool udp_client::connect() {
@@ -78,7 +79,11 @@ bool udp_client::connect() {
     err_t err = udp_connect(udp_controlblock, &remote_addr, port);
     cyw43_arch_lwip_end();
 
-    return err == ERR_OK;
+    connected_ = err == ERR_OK;
+    if(connected_) {
+        user_connected_callback();
+    }
+    return connected_;
 }
 
 bool udp_client::connect(ip_addr_t addr, uint16_t port) {
@@ -137,6 +142,10 @@ void udp_client::recv_callback(void* arg, udp_pcb* pcb, pbuf* p, const ip_addr_t
     client->user_receive_callback(addr, port);
 }
 
+ip_addr_t udp_client::remote_address() const {
+    return remote_addr;
+}
+
 bool udp_client::initialized() const {
     return initialized_;
 }
@@ -145,6 +154,10 @@ bool udp_client::connected() const {
     return connected_;
 }
 
-void udp_client::on_receive(std::function<void(const ip_addr_t *addr, uint16_t port)> callback) {
+void udp_client::on_receive(std::function<void(const ip_addr_t*, uint16_t)> callback) {
     user_receive_callback = callback;
+}
+
+void udp_client::on_connect(std::function<void()> callback) {
+    user_connected_callback = callback;
 }

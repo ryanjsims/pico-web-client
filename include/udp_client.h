@@ -26,8 +26,10 @@ public:
 
     bool initialized() const;
     bool connected() const;
+    ip_addr_t remote_address() const;
 
-    void on_receive(std::function<void(const ip_addr_t *addr, uint16_t port)> callback);
+    void on_receive(std::function<void(const ip_addr_t *, uint16_t)> callback);
+    void on_connect(std::function<void()> callback);
 private:
     struct udp_pcb *udp_controlblock;
     ip_addr_t remote_addr;
@@ -35,9 +37,10 @@ private:
     circular_buffer<uint8_t> buffer{BUF_SIZE};
     int buffer_len, sent_len;
     bool initialized_, connected_;
-    std::function<void(const ip_addr_t *addr, uint16_t port)> user_receive_callback;
+    std::function<void(const ip_addr_t*, uint16_t)> user_receive_callback;
+    std::function<void()> user_connected_callback;
 
     bool connect();
     static void dns_callback(const char* name, const ip_addr_t *addr, void* arg);
-    static void recv_callback(void* arg, udp_pcb* pcb, pbuf* p, const ip_addr_t *addr, uint16_t port);
+    static void recv_callback(void* arg, struct udp_pcb* pcb, struct pbuf* p, const ip_addr_t *addr, uint16_t port);
 };
