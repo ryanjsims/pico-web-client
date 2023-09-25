@@ -44,11 +44,23 @@ void http_client::options(std::string target, std::string body) {
 }
 
 void http_client::header(std::string key, std::string value) {
+    if(request_sent) {
+        current_request = {};
+        request_sent = false;
+    }
     current_request.add_header(key, value);
 }
 
 void http_client::send_request(std::string method, std::string target, std::string body) {
-    current_request = {method, target, body};
+    if(request_sent) {
+        current_request = {method, target, body};
+        request_sent = false;
+    } else {
+        current_request.method_ = method;
+        current_request.target_ = target;
+        current_request.body_ = body;
+        current_request.ready_ = true;
+    }
     send_request();
 }
 
@@ -126,6 +138,7 @@ void http_client::tcp_connected_callback() {
     std::string serialized = current_request.serialize();
     debug("http_client sending:\n%s\n", serialized.c_str());
     tcp->write({(uint8_t*)serialized.c_str(), serialized.size()});
+    request_sent = true;
 }
 
 void http_client::tcp_recv_callback() {

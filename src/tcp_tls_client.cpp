@@ -26,7 +26,9 @@ tcp_tls_client::tcp_tls_client(std::span<uint8_t> cert)
 }
 
 tcp_tls_client::~tcp_tls_client() {
-    close(ERR_OK);
+    cyw43_arch_lwip_begin();
+    altcp_close(tcp_controlblock);
+    cyw43_arch_lwip_end();
 }
 
 bool tcp_tls_client::init() {

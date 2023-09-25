@@ -53,7 +53,7 @@ public:
 
 private:
     tcp_base *tcp;
-    bool response_ready = false;
+    bool response_ready = false, request_sent = false;
     http_request current_request;
     http_response current_response;
     std::string host_, url_;
