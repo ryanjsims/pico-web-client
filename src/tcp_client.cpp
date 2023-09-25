@@ -29,6 +29,10 @@ tcp_client::tcp_client()
     initialized_ = init();
 }
 
+tcp_client::~tcp_client() {
+    close(ERR_OK);
+}
+
 bool tcp_client::init() {
     debug1("Initializing tcp_client\n");
     if(tcp_controlblock != nullptr) {

@@ -12,6 +12,7 @@ static struct altcp_tls_config *tls_config = nullptr;
 class tcp_tls_client : public tcp_base {
 public:
     tcp_tls_client(std::span<uint8_t> cert = {});
+    ~tcp_tls_client();
     bool init() override;
     int available() const override;
     size_t read(std::span<uint8_t> out) override;

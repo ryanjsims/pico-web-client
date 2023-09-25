@@ -25,6 +25,10 @@ tcp_tls_client::tcp_tls_client(std::span<uint8_t> cert)
     }
 }
 
+tcp_tls_client::~tcp_tls_client() {
+    close(ERR_OK);
+}
+
 bool tcp_tls_client::init() {
     debug1("tcp_tls_config::init\n");
     if(tcp_controlblock != nullptr) {

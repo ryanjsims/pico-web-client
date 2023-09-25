@@ -13,6 +13,7 @@
 class tcp_client : public tcp_base {
 public:
     tcp_client();
+    ~tcp_client();
     bool init() override;
     int available() const override;
     size_t read(std::span<uint8_t> out) override;
