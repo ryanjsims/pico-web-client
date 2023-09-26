@@ -36,8 +36,11 @@ public:
         return response_ready;
     }
 
+    bool sent_request() const {
+        return request_sent;
+    }
+
     const http_response &response() {
-        response_ready = false;
         return current_response;
     }
 
