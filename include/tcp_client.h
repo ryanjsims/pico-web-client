@@ -42,7 +42,7 @@ public:
 protected:
     struct tcp_pcb *tcp_controlblock;
     ip_addr_t remote_addr;
-    circular_buffer<uint8_t> buffer{BUF_SIZE};
+    circular_buffer<uint8_t, BUF_SIZE> buffer;
     int buffer_len;
     int sent_len;
     bool connected_, initialized_;

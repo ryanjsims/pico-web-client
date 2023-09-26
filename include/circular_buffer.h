@@ -6,7 +6,7 @@
 
 #include <iterator>
 
-template <class T>
+template <class T, size_t count>
 class circular_buffer {
 public:
     struct iterator {
@@ -35,12 +35,6 @@ public:
         pointer ptr_;
         size_t index_, max_size_;
     };
-    explicit circular_buffer(size_t size) :
-        buf_(std::unique_ptr<T[]>(new T[size])),
-        max_size_(size)
-    { 
-        // empty
-    }
 
     bool put(T item);
     size_t put(std::span<T> items);
@@ -58,8 +52,8 @@ public:
     iterator end() const;
 
 private:
-    std::unique_ptr<T[]> buf_;
+    T buf_[count];
     size_t head_ = 0;
     size_t tail_ = 0;
-    const size_t max_size_;
+    const size_t max_size_ = count;
 };

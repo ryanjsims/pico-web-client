@@ -34,7 +34,7 @@ private:
     struct udp_pcb *udp_controlblock;
     ip_addr_t remote_addr;
     uint16_t port;
-    circular_buffer<uint8_t> buffer{BUF_SIZE};
+    circular_buffer<uint8_t, BUF_SIZE> buffer;
     int buffer_len, sent_len;
     bool initialized_, connected_;
     std::function<void(const ip_addr_t*, uint16_t)> user_receive_callback;
