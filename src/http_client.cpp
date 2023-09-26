@@ -158,3 +158,7 @@ void http_client::tcp_recv_callback() {
 void http_client::tcp_closed_callback() {
     debug1("http_client closed callback\n");
 }
+
+bool http_client::connected() const {
+    return tcp->connected();
+}
