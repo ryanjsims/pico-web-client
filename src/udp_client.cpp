@@ -95,7 +95,7 @@ bool udp_client::connect(ip_addr_t addr, uint16_t port) {
 }
 
 bool udp_client::connect(std::string addr, uint16_t port) {
-    debug("tcp_client::connect to %s:%d\n", addr.c_str(), port);
+    debug("udp_client::connect to %s:%d\n", addr.c_str(), port);
     err_t err = dns_gethostbyname(addr.c_str(), &remote_addr, dns_callback, this);
     this->port = port;
     if(err == ERR_OK) {

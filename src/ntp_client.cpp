@@ -68,7 +68,8 @@ void ntp_client::sync_time(datetime_t *repeat) {
         rtc_set_alarm(repeat, ntp_client::rtc_callback);
     }
 
-    if(!udp->connected()) {
+    // If the client is not connected or randomly every ~8 calls, connect to the ntp server
+    if(!udp->connected() || get_rand_32() < 0x1FFFFFFF) {
         udp->connect(ntp_server, NTP_PORT);
     } else {
         this->send_packet();
