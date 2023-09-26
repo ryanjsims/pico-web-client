@@ -40,6 +40,10 @@ public:
         return request_sent;
     }
 
+    bool connected() const {
+        return tcp->connected();
+    }
+
     const http_response &response() {
         return current_response;
     }
