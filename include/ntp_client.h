@@ -26,7 +26,7 @@ private:
     udp_client* udp;
     std::string ntp_server;
     alarm_id_t ntp_resend_alarm;
-    uint32_t ntp_retry_time, last_sync;
+    uint32_t ntp_retry_time, last_sync, sent_ms, recv_ms;
 
     void send_packet();
     static void* rtc_cb_data;

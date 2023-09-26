@@ -33,6 +33,7 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
     });
 
     udp->on_receive([&](const ip_addr_t* addr, uint16_t port){
+        recv_ms = to_ms_since_boot(get_absolute_time());
         debug("ntp_client: received packet from %d.%d.%d.%d:%d\n", ip4_addr1(addr), ip4_addr2(addr), ip4_addr3(addr), ip4_addr4(addr), port);
         ip_addr_t remote_addr = udp->remote_address();
         if(ip_addr_cmp(addr, &remote_addr) && port == NTP_PORT) {
@@ -46,7 +47,9 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
                 return;
             }
             cancel_alarm(ntp_resend_alarm);
+            uint32_t delay_ms = (recv_ms - sent_ms) - (1000 * (int32_t)(ntohl(packet.m_tx_timestamp.seconds) - ntohl(packet.m_rx_timestamp.seconds)) + (packet.m_tx_timestamp.fraction_to_ms() - packet.m_rx_timestamp.fraction_to_ms()));
             time_t epoch = ntp_client::time_t_from_ntp_timestamp(packet.m_tx_timestamp.seconds);
+            epoch += (delay_ms / 2 + packet.m_tx_timestamp.fraction_to_ms()) / 1000;
             struct tm *time_tm = gmtime(&epoch);
 
             datetime_t datetime = ntp_client::datetime_from_tm(*time_tm);
@@ -82,6 +85,7 @@ void ntp_client::send_packet() {
     debug1("ntp_client: Sending ntp packet\n");
 
     ntp_resend_alarm = add_alarm_in_ms(ntp_retry_time, ntp_client::alarm_callback, this, true);
+    sent_ms = to_ms_since_boot(get_absolute_time());
     udp->write({packet.data, NTP_MESSAGE_LEN});
 }
 

@@ -19,6 +19,10 @@ union ntp_timestamp {
         uint32_t seconds;
         uint32_t fraction;
     };
+
+    int32_t fraction_to_ms() {
+        return (int32_t)((((double)ntohl(fraction)) / UINT32_MAX) * 1000);
+    }
 };
 
 union ntp_packet {
