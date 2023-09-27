@@ -48,7 +48,8 @@ bool tcp_tls_client::init() {
     altcp_recv(tcp_controlblock, recv_callback);
     altcp_err(tcp_controlblock, err_callback);
 
-    return true;
+    initialized_ = true;
+    return initialized_;
 }
 
 int tcp_tls_client::available() const {
