@@ -26,3 +26,13 @@ std::string http_request::method() const {
 std::string http_request::target() const {
     return target_;
 }
+
+void http_request::clear() {
+    method_.clear();
+    target_.clear();
+    body_.clear();
+    for(auto it = headers.begin(); it != headers.end(); it++) {
+        it->second.clear();
+    }
+    headers.clear();
+}

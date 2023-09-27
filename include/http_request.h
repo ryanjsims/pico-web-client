@@ -10,6 +10,7 @@ public:
     std::string serialize();
     std::string method() const;
     std::string target() const;
+    void clear();
 
 private:
     std::string method_, target_, body_;
