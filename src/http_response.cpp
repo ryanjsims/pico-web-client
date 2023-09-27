@@ -23,6 +23,7 @@ void http_response::parse(const std::string &data) {
 
 void http_response::clear() {
     status_code = 0;
+    state = parse_state::status_line;
     status_text.clear();
     body.clear();
     protocol.clear();
