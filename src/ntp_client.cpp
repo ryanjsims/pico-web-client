@@ -151,6 +151,45 @@ struct tm ntp_client::tm_from_datetime(datetime_t dt) {
     return time_tm;
 }
 
+long long diff_tm(struct tm *a, struct tm *b) {
+    return a->tm_sec - b->tm_sec
+          +60LL*(a->tm_min - b->tm_min)
+          +3600LL*(a->tm_hour - b->tm_hour)
+          +86400LL*(a->tm_yday - b->tm_yday)
+          +(a->tm_year-70)*31536000LL
+          -(a->tm_year-69)/4*86400LL
+          +(a->tm_year-1)/100*86400LL
+          -(a->tm_year+299)/400*86400LL
+          -(b->tm_year-70)*31536000LL
+          +(b->tm_year-69)/4*86400LL
+          -(b->tm_year-1)/100*86400LL
+          +(b->tm_year+299)/400*86400LL;
+}
+
+struct tm* make_local_time(time_t utc, struct tm* _tm) {
+    if(_tm == nullptr) {
+        return nullptr;
+    }
+
+    struct tm epoch0 = {
+        .tm_mday = 1,
+        .tm_year = 70
+    };
+
+    time_t epoch_seconds = mktime(&epoch0);
+    struct tm epoch1 = *gmtime(&epoch_seconds);
+    epoch0.tm_sec += utc - diff_tm(&epoch1, &epoch0);
+
+    *_tm = *localtime((const time_t*)&epoch0.tm_sec);
+    return _tm;
+}
+
+struct tm ntp_client::localtime(datetime_t dt) {
+    struct tm utc = ntp_client::tm_from_datetime(dt), local;
+    make_local_time(mktime(&utc), &local);
+    return local;
+}
+
 time_t ntp_client::time_t_from_ntp_timestamp(uint32_t ntp_timestamp) {
     uint32_t seconds_since_1900 = ntohl(ntp_timestamp);
     uint32_t seconds_since_1970 = seconds_since_1900 - NTP_DELTA;
