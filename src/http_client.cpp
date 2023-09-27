@@ -45,7 +45,7 @@ void http_client::options(std::string target, std::string body) {
 
 void http_client::header(std::string key, std::string value) {
     if(request_sent) {
-        current_request = {};
+        current_request.clear();
         request_sent = false;
     }
     current_request.add_header(key, value);
@@ -53,14 +53,13 @@ void http_client::header(std::string key, std::string value) {
 
 void http_client::send_request(std::string method, std::string target, std::string body) {
     if(request_sent) {
-        current_request = {method, target, body};
+        current_request.clear();
         request_sent = false;
-    } else {
-        current_request.method_ = method;
-        current_request.target_ = target;
-        current_request.body_ = body;
-        current_request.ready_ = true;
-    }
+    } 
+    current_request.method_ = method;
+    current_request.target_ = target;
+    current_request.body_ = body;
+    current_request.ready_ = true;
     send_request();
 }
 
@@ -114,7 +113,10 @@ void http_client::send_request() {
     if(current_request.body_.size() > 0) {
         current_request.add_header("Content-Length", std::to_string(current_request.body_.size()));
     }
-    current_response = http_response{&current_request};
+    current_response.clear();
+    if(current_response.request == nullptr) {
+        current_response = http_response(&current_request);
+    }
     trace1("Adding callbacks\n");
     tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
     tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
