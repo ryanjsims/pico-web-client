@@ -21,6 +21,18 @@ void http_response::parse(const std::string &data) {
     }
 }
 
+void http_response::clear() {
+    status_code = 0;
+    status_text.clear();
+    body.clear();
+    protocol.clear();
+    data.clear();
+    for(auto it = headers.begin(); it != headers.end(); it++) {
+        it->second.clear();
+    }
+    headers.clear();
+}
+
 void http_response::parse_line(std::string_view line) {
     size_t token_start, token_end;
     switch(state) {

@@ -26,6 +26,7 @@ public:
     const std::string &get_protocol() const;
     const std::string &get_body() const;
     void add_data(std::string data);
+    void clear();
 
 private:
     uint16_t status_code;
