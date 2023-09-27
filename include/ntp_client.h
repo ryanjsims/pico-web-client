@@ -11,11 +11,18 @@
 
 class udp_client;
 
+enum class ntp_state {
+    NOT_SYNCED,
+    SYNCING,
+    SYNCED,
+};
+
 class ntp_client {
 public:
     ntp_client(std::string server, uint32_t retry_time = NTP_DEFAULT_RETRY_TIME);
 
     void sync_time(datetime_t *repeat = nullptr);
+    ntp_state state() const;
 
     static void dump_bytes(std::span<uint8_t> data);
     static datetime_t datetime_from_tm(struct tm);
@@ -25,6 +32,7 @@ public:
     static uint32_t ntp_timestamp_from_time_t(time_t);
 private:
     udp_client* udp;
+    ntp_state m_state;
     std::string ntp_server;
     alarm_id_t ntp_resend_alarm;
     uint32_t ntp_retry_time, last_sync, sent_ms, recv_ms;

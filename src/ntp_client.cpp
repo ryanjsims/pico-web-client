@@ -20,6 +20,7 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
     , ntp_resend_alarm(0)
     , ntp_retry_time(retry_time)
     , last_sync(0)
+    , m_state(ntp_state::NOT_SYNCED)
 {
     rtc_init();
 
@@ -62,12 +63,14 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
             std::strftime(buf, sizeof(buf), "%F %T UTC%z", &time);
             info("ntp_client: Time set to %s\n", buf);
             #endif
+            m_state = ntp_state::SYNCED;
         }
     });
 }
 
 void ntp_client::sync_time(datetime_t *repeat) {
     info1("ntp_client: sync'ing time\n");
+    m_state = ntp_state::SYNCING;
     if(repeat != nullptr) {
         rtc_cb_data = this;
         rtc_set_alarm(repeat, ntp_client::rtc_callback);
@@ -106,6 +109,10 @@ void ntp_client::dump_bytes(std::span<uint8_t> data) {
     }
     debug_cont1("\n");
 #endif
+}
+
+ntp_state ntp_client::state() const {
+    return m_state;
 }
 
 int64_t reenable_rtc(alarm_id_t, void*) {
