@@ -2,6 +2,7 @@
 
 #include <hardware/rtc.h>
 #include <string.h>
+#include <ctime>
 
 #include "udp_client.h"
 #include "ntp_packet.h"
@@ -56,8 +57,9 @@ ntp_client::ntp_client(std::string server, uint32_t retry_time)
             rtc_set_datetime(&datetime);
 
             #if LOG_LEVEL<=LOG_LEVEL_INFO
-            char buf[256];
-            datetime_to_str(buf, sizeof(buf), &datetime);
+            char buf[32];
+            struct tm time = ntp_client::localtime(datetime);
+            std::strftime(buf, sizeof(buf), "%F %T UTC%z", &time);
             info("ntp_client: Time set to %s\n", buf);
             #endif
         }
