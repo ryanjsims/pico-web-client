@@ -28,6 +28,7 @@ public:
     static datetime_t datetime_from_tm(struct tm);
     static struct tm tm_from_datetime(datetime_t);
     static struct tm localtime(datetime_t);
+    static struct tm localtime(time_t utc);
     static time_t time_t_from_ntp_timestamp(uint32_t);
     static uint32_t ntp_timestamp_from_time_t(time_t);
 private:

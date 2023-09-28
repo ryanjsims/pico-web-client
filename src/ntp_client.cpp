@@ -199,6 +199,12 @@ struct tm ntp_client::localtime(datetime_t dt) {
     return local;
 }
 
+struct tm ntp_client::localtime(time_t utc) {
+    struct tm local;
+    make_local_time(utc, &local);
+    return local;
+}
+
 time_t ntp_client::time_t_from_ntp_timestamp(uint32_t ntp_timestamp) {
     uint32_t seconds_since_1900 = ntohl(ntp_timestamp);
     uint32_t seconds_since_1970 = seconds_since_1900 - NTP_DELTA;
