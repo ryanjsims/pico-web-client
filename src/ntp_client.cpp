@@ -200,8 +200,8 @@ struct tm ntp_client::localtime(datetime_t dt) {
 }
 
 struct tm ntp_client::localtime(time_t utc) {
-    struct tm local;
-    make_local_time(utc, &local);
+    struct tm local, gmt;
+    make_local_time(mktime(gmtime_r(&utc, &gmt)), &local);
     return local;
 }
 
