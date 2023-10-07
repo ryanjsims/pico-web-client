@@ -246,6 +246,7 @@ void tcp_client::err_callback(void* arg, err_t err) {
     tcp_client *client = (tcp_client*)arg;
     error1("TCP error: code ");
     tcp_perror(err);
+    client->clear_pcb();
     if (err != ERR_ABRT) {
         client->close(err);
     }

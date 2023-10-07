@@ -39,6 +39,10 @@ public:
         user_closed_callback = callback;
     }
 
+    void clear_pcb() {
+        tcp_controlblock = nullptr;
+    }
+
 protected:
     struct tcp_pcb *tcp_controlblock;
     ip_addr_t remote_addr;
