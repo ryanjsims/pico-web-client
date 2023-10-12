@@ -41,6 +41,9 @@ public:
     }
 
     bool connected() const;
+    bool has_error() const;
+
+    void clear_error();
 
     const http_response &response() {
         return current_response;
@@ -58,7 +61,7 @@ public:
 
 private:
     tcp_base *tcp;
-    bool response_ready = false, request_sent = false;
+    bool response_ready = false, request_sent = false, m_has_error = false;
     http_request current_request;
     http_response current_response;
     std::string host_, url_;

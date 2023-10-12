@@ -99,6 +99,7 @@ bool http_client::init() {
     }
     if(!tcp) {
         error1("http_client::init failed to create new tcp_client\n");
+        m_has_error = true;
         return false;
     }
     return true;
@@ -125,6 +126,7 @@ void http_client::send_request() {
 
     if(!init) {
         error1("http_client::send_request: Could not initialize tcp client\n");
+        m_has_error = true;
         return;
     }
 
@@ -165,4 +167,12 @@ void http_client::tcp_closed_callback() {
 
 bool http_client::connected() const {
     return tcp->connected();
+}
+
+bool http_client::has_error() const {
+    return m_has_error;
+}
+
+void http_client::clear_error() {
+    m_has_error = false;
 }
