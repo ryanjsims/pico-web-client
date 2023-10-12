@@ -121,9 +121,11 @@ void http_client::send_request() {
     tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
     tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
 
-    if(!tcp->initialized()) {
-        trace1("Initializing TCP\n");
-        tcp->init();
+    bool init = tcp->initialized() || tcp->init();
+
+    if(!init) {
+        error1("http_client::send_request: Could not initialize tcp client\n");
+        return;
     }
 
     if(!tcp->connected()) {
