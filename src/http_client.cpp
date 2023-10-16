@@ -9,6 +9,7 @@ http_client::http_client(std::string url, std::span<uint8_t> cert)
     , m_url(url)
     , m_port(-1)
     , m_cert(cert)
+    , m_tcp(nullptr)
 {
     trace1("http_client ctor entered\n");
     init();
@@ -110,21 +111,30 @@ bool http_client::init() {
     if(m_url_parser.port_.size() > 0)
         m_url_parser.getPort(&m_port);
     debug("http_client::init got host '%s'\n", m_host.c_str());
-    if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss") && (m_tcp == nullptr || !m_tcp->secure())) {
+
+    if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss")) {
         debug1("http_client::init creating new tcp_tls_client\n");
-        if(m_tcp) {
+        if(m_tcp && !m_tcp->secure()) {
             delete m_tcp;
+            m_tcp = nullptr;
         }
-        m_tcp = new tcp_tls_client(m_cert);
+
+        if(m_tcp == nullptr) {
+            m_tcp = new tcp_tls_client(m_cert);
+        }
         if(m_port == -1) {
             m_port = 443;
         }
-    } else if(m_tcp == nullptr || m_tcp->secure()) {
+    } else {
         debug1("http_client::init creating new tcp_client\n");
-        if(m_tcp) {
+        if(m_tcp && m_tcp->secure()) {
             delete m_tcp;
+            m_tcp = nullptr;
         }
-        m_tcp = new tcp_client();
+
+        if(m_tcp == nullptr) {
+            m_tcp = new tcp_client();
+        }
         if(m_port == -1) {
             m_port = 80;
         }
