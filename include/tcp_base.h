@@ -11,6 +11,8 @@
 #define BUF_SIZE 2048
 #define POLL_TIME_S 2
 
+std::string tcp_perror(err_t);
+
 class tcp_base {
 public:
     virtual bool init() = 0;

@@ -186,66 +186,9 @@ err_t tcp_client::recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err) {
     return ERR_OK;
 }
 
-void tcp_client::tcp_perror(err_t err) {
-    switch(err) {
-    case ERR_ABRT:
-        error_cont1("ERR_ABRT\n");
-        break;
-    case ERR_ALREADY:
-        error_cont1("ERR_ALREADY\n");
-        break;
-    case ERR_ARG:
-        error_cont1("ERR_ARG\n");
-        break;
-    case ERR_BUF:
-        error_cont1("ERR_BUF\n");
-        break;
-    case ERR_CLSD:
-        error_cont1("ERR_CLSD\n");
-        break;
-    case ERR_CONN:
-        error_cont1("ERR_CONN\n");
-        break;
-    case ERR_IF:
-        error_cont1("ERR_IF\n");
-        break;
-    case ERR_INPROGRESS:
-        error_cont1("ERR_INPROGRESS\n");
-        break;
-    case ERR_ISCONN:
-        error_cont1("ERR_ISCONN\n");
-        break;
-    case ERR_MEM:
-        error_cont1("ERR_MEM\n");
-        break;
-    case ERR_OK:
-        error_cont1("ERR_OK\n");
-        break;
-    case ERR_RST:
-        error_cont1("ERR_RST\n");
-        break;
-    case ERR_RTE:
-        error_cont1("ERR_RTE\n");
-        break;
-    case ERR_TIMEOUT:
-        error_cont1("ERR_TIMEOUT\n");
-        break;
-    case ERR_USE:
-        error_cont1("ERR_USE\n");
-        break;
-    case ERR_VAL:
-        error_cont1("ERR_VAL\n");
-        break;
-    case ERR_WOULDBLOCK:
-        error_cont1("ERR_WOULDBLOCK\n");
-        break;
-    }
-}
-
 void tcp_client::err_callback(void* arg, err_t err) {
     tcp_client *client = (tcp_client*)arg;
-    error1("TCP error: code ");
-    tcp_perror(err);
+    error("TCP error: code %s\n", tcp_perror(err).c_str());
     client->clear_pcb();
     if (err != ERR_ABRT) {
         client->close(err);
@@ -257,11 +200,49 @@ err_t tcp_client::connected_callback(void* arg, tcp_pcb* pcb, err_t err) {
     tcp_client *client = (tcp_client*)arg;
     debug1("tcp_client::connected_callback\n");
     if(err != ERR_OK) {
-        error1("connect failed with error code ");
-        tcp_perror(err);
+        error("connect failed with error code %s\n", tcp_perror(err).c_str());
         return client->close(err);
     }
     client->connected_ = true;
     client->user_connected_callback();
     return ERR_OK;
+}
+
+std::string tcp_perror(err_t err) {
+    switch(err) {
+    case ERR_ABRT:
+        return "ERR_ABRT";
+    case ERR_ALREADY:
+        return "ERR_ALREADY";
+    case ERR_ARG:
+        return "ERR_ARG";
+    case ERR_BUF:
+        return "ERR_BUF";
+    case ERR_CLSD:
+        return "ERR_CLSD";
+    case ERR_CONN:
+        return "ERR_CONN";
+    case ERR_IF:
+        return "ERR_IF";
+    case ERR_INPROGRESS:
+        return "ERR_INPROGRESS";
+    case ERR_ISCONN:
+        return "ERR_ISCONN";
+    case ERR_MEM:
+        return "ERR_MEM";
+    case ERR_OK:
+        return "ERR_OK";
+    case ERR_RST:
+        return "ERR_RST";
+    case ERR_RTE:
+        return "ERR_RTE";
+    case ERR_TIMEOUT:
+        return "ERR_TIMEOUT";
+    case ERR_USE:
+        return "ERR_USE";
+    case ERR_VAL:
+        return "ERR_VAL";
+    case ERR_WOULDBLOCK:
+        return "ERR_WOULDBLOCK";
+    }
 }

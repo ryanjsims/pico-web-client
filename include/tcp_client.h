@@ -67,7 +67,7 @@ protected:
     static err_t poll_callback(void* arg, tcp_pcb* pcb);
     static err_t sent_callback(void* arg, tcp_pcb* pcb, u16_t len);
     static err_t recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err);
-    static void tcp_perror(err_t err);
+    //static void tcp_perror(err_t err);
     static void err_callback(void* arg, err_t err);
     static err_t connected_callback(void* arg, tcp_pcb* pcb, err_t err);
 };

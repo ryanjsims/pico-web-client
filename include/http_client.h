@@ -6,6 +6,7 @@
 #include "http_request.h"
 #include "http_response.h"
 #include "LUrlParser.h"
+#include "lwip/err.h"
 
 class tcp_base;
 
@@ -77,5 +78,6 @@ private:
 
     void tcp_connected_callback();
     void tcp_recv_callback();
-    void tcp_closed_callback();
+    void tcp_closed_callback(err_t);
+    void tcp_error_callback(err_t);
 };

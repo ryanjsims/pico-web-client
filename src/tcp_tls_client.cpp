@@ -151,8 +151,7 @@ err_t tcp_tls_client::connected_callback(void* arg, altcp_pcb* pcb, err_t err) {
     tcp_tls_client *client = (tcp_tls_client*)arg;
     debug1("tcp_tls_client::connected_callback\n");
     if(err != ERR_OK) {
-        error1("connect failed with error code ");
-        tcp_perror(err);
+        error("connect failed with error code %s\n", tcp_perror(err).c_str());
         return client->close(err);
     }
     client->connected_ = true;
@@ -208,66 +207,9 @@ err_t tcp_tls_client::sent_callback(void* arg, altcp_pcb* pcb, uint16_t len) {
     return ERR_OK;
 }
 
-void tcp_tls_client::tcp_perror(err_t err) {
-    switch(err) {
-    case ERR_ABRT:
-        error_cont1("ERR_ABRT\n");
-        break;
-    case ERR_ALREADY:
-        error_cont1("ERR_ALREADY\n");
-        break;
-    case ERR_ARG:
-        error_cont1("ERR_ARG\n");
-        break;
-    case ERR_BUF:
-        error_cont1("ERR_BUF\n");
-        break;
-    case ERR_CLSD:
-        error_cont1("ERR_CLSD\n");
-        break;
-    case ERR_CONN:
-        error_cont1("ERR_CONN\n");
-        break;
-    case ERR_IF:
-        error_cont1("ERR_IF\n");
-        break;
-    case ERR_INPROGRESS:
-        error_cont1("ERR_INPROGRESS\n");
-        break;
-    case ERR_ISCONN:
-        error_cont1("ERR_ISCONN\n");
-        break;
-    case ERR_MEM:
-        error_cont1("ERR_MEM\n");
-        break;
-    case ERR_OK:
-        error_cont1("ERR_OK\n");
-        break;
-    case ERR_RST:
-        error_cont1("ERR_RST\n");
-        break;
-    case ERR_RTE:
-        error_cont1("ERR_RTE\n");
-        break;
-    case ERR_TIMEOUT:
-        error_cont1("ERR_TIMEOUT\n");
-        break;
-    case ERR_USE:
-        error_cont1("ERR_USE\n");
-        break;
-    case ERR_VAL:
-        error_cont1("ERR_VAL\n");
-        break;
-    case ERR_WOULDBLOCK:
-        error_cont1("ERR_WOULDBLOCK\n");
-        break;
-    }
-}
-
 void tcp_tls_client::err_callback(void* arg, err_t err) {
     tcp_tls_client *client = (tcp_tls_client*)arg;
-    error1("TCP error: code ");
-    tcp_perror(err);
+    error("TCP error: code %s\n", tcp_perror(err).c_str());
     client->clear_pcb();
     if (err != ERR_ABRT) {
         client->close(err);
