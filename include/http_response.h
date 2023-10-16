@@ -1,5 +1,12 @@
 #include <map>
 #include <string>
+#include <span>
+
+#ifndef HTTP_STATIC_SIZE
+#define HTTP_DEFAULT_CAPACITY 2048
+#else
+#define HTTP_DEFAULT_CAPACITY 49152
+#endif
 
 class http_request;
 
@@ -18,21 +25,28 @@ class http_response {
     };
 public:
     http_response(const http_request *request = nullptr);
-    void parse(const std::string &data);
+    void parse(std::span<uint8_t> data);
     void parse_line(std::string_view line);
-    const std::map<std::string, std::string> &get_headers() const;
+    const std::map<std::string, std::string_view> &get_headers() const;
     uint16_t status() const;
-    const std::string &get_status_text() const;
-    const std::string &get_protocol() const;
-    const std::string &get_body() const;
-    void add_data(std::string data);
+    const std::string_view &get_status_text() const;
+    const std::string_view &get_protocol() const;
+    const std::string_view &get_body() const;
+    // Copies data from parameter into the response
+    void add_data(std::span<uint8_t> data);
     void clear();
 
 private:
     uint16_t status_code;
     int content_length = -1;
-    std::string protocol, status_text, body, data;
-    std::map<std::string, std::string> headers;
+    std::string_view protocol, status_text, body;
+#ifndef HTTP_STATIC_SIZE
+    uint8_t* data;
+#else
+    uint8_t data[HTTP_DEFAULT_CAPACITY];
+#endif
+    uint32_t index, capacity;
+    std::map<std::string, std::string_view> headers;
     parse_state state;
     content_type type;
     const http_request *request = nullptr;

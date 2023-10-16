@@ -22,6 +22,9 @@ public:
 
     bool connected() const override;
     bool initialized() const override;
+    bool secure() const override {
+        return true;
+    }
 
     void on_receive(std::function<void()> callback) override {
         user_receive_callback = callback;

@@ -4,15 +4,27 @@
 #include "tcp_client.h"
 #include "tcp_tls_client.h"
 
-http_client::http_client(std::string url, std::span<uint8_t> cert): host_(""), url_(url), port_(-1), cert(cert) {
+http_client::http_client(std::string url, std::span<uint8_t> cert)
+    : m_host("")
+    , m_url(url)
+    , m_port(-1)
+    , m_cert(cert)
+{
     init();
 }
 
 http_client::~http_client() {
-    if(tcp) {
-        delete tcp;
+    if(m_tcp) {
+        delete m_tcp;
     }
     debug1("~http_client\n");
+}
+
+void http_client::url(std::string new_url) {
+    m_url = new_url;
+    if(m_tcp && m_tcp->connected()) {
+        m_tcp->close(ERR_OK);
+    }
 }
 
 void http_client::get(std::string target, std::string body) {
@@ -44,60 +56,66 @@ void http_client::options(std::string target, std::string body) {
 }
 
 void http_client::header(std::string key, std::string value) {
-    if(request_sent) {
-        current_request.clear();
-        request_sent = false;
+    if(m_request_sent) {
+        m_current_request.clear();
+        m_request_sent = false;
     }
-    current_request.add_header(key, value);
+    m_current_request.add_header(key, value);
 }
 
 void http_client::send_request(std::string method, std::string target, std::string body) {
-    if(request_sent) {
-        current_request.clear();
-        request_sent = false;
+    if(m_request_sent) {
+        m_current_request.clear();
+        m_request_sent = false;
     } 
-    current_request.method_ = method;
-    current_request.target_ = target;
-    current_request.body_ = body;
-    current_request.ready_ = true;
+    m_current_request.method_ = method;
+    m_current_request.target_ = target;
+    m_current_request.body_ = body;
+    m_current_request.ready_ = true;
     send_request();
 }
 
 tcp_base *http_client::release_tcp_client() {
-    tcp->on_connected([](){});
-    tcp->on_receive([](){});
-    tcp->on_closed([](err_t){});
-    tcp_base *to_return = tcp;
-    tcp = nullptr;
+    m_tcp->on_connected([](){});
+    m_tcp->on_receive([](){});
+    m_tcp->on_closed([](err_t){});
+    tcp_base *to_return = m_tcp;
+    m_tcp = nullptr;
     return std::move(to_return);
 }
 
 bool http_client::init() {
     debug("http_client::init Parsing URL '%s'\n", url_.c_str());
-    URL = LUrlParser::ParseURL::parseURL(url_);
-    if(!URL.isValid()) {
-        error("Invalid URL: %s\n", url_.c_str());
+    m_url_parser = LUrlParser::ParseURL::parseURL(m_url);
+    if(!m_url_parser.isValid()) {
+        error("Invalid URL: %s\n", m_url.c_str());
         return false;
     }
 
-    host_ = URL.host_;
-    if(URL.port_.size() > 0)
-        URL.getPort(&port_);
+    m_host = m_url_parser.host_;
+    if(m_url_parser.port_.size() > 0)
+        m_url_parser.getPort(&m_port);
     debug("http_client::init got host '%s'\n", host_.c_str());
-    if(URL.scheme_ == "https" || URL.scheme_ == "wss") {
+    if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss") && (m_tcp == nullptr || !m_tcp->secure())) {
         debug1("http_client::init creating new tcp_tls_client\n");
-        tcp = new tcp_tls_client(cert);
-        if(port_ == -1) {
-            port_ = 443;
+        if(m_tcp) {
+            delete m_tcp;
         }
-    } else {
+        m_tcp = new tcp_tls_client(m_cert);
+        if(m_port == -1) {
+            m_port = 443;
+        }
+    } else if(m_tcp == nullptr || m_tcp->secure()) {
         debug1("http_client::init creating new tcp_client\n");
-        tcp = new tcp_client();
-        if(port_ == -1) {
-            port_ = 80;
+        if(m_tcp) {
+            delete m_tcp;
+        }
+        m_tcp = new tcp_client();
+        if(m_port == -1) {
+            m_port = 80;
         }
     }
-    if(!tcp) {
+    if(!m_tcp) {
         error1("http_client::init failed to create new tcp_client\n");
         m_has_error = true;
         return false;
@@ -107,22 +125,22 @@ bool http_client::init() {
 
 void http_client::send_request() {
     debug("http_client::send_request (tcp = %p)\n", tcp);
-    response_ready = false;
+    m_response_ready = false;
     trace1("Adding headers\n");
-    current_request.add_header("Host", host_);
-    current_request.add_header("User-Agent", "pico");
-    if(current_request.body_.size() > 0) {
-        current_request.add_header("Content-Length", std::to_string(current_request.body_.size()));
+    m_current_request.add_header("Host", m_host);
+    m_current_request.add_header("User-Agent", "pico");
+    if(m_current_request.body_.size() > 0) {
+        m_current_request.add_header("Content-Length", std::to_string(m_current_request.body_.size()));
     }
-    current_response.clear();
-    if(current_response.request == nullptr) {
-        current_response = http_response(&current_request);
+    m_current_response.clear();
+    if(m_current_response.request == nullptr) {
+        m_current_response = http_response(&m_current_request);
     }
     trace1("Adding callbacks\n");
-    tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
-    tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
+    m_tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
+    m_tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
 
-    bool init = tcp->initialized() || tcp->init();
+    bool init = m_tcp->initialized() || m_tcp->init();
 
     if(!init) {
         error1("http_client::send_request: Could not initialize tcp client\n");
@@ -130,10 +148,10 @@ void http_client::send_request() {
         return;
     }
 
-    if(!tcp->connected()) {
+    if(!m_tcp->connected()) {
         trace1("Connecting TCP\n");
-        tcp->on_connected(std::bind(&http_client::tcp_connected_callback, this));
-        tcp->connect(host_, port_);
+        m_tcp->on_connected(std::bind(&http_client::tcp_connected_callback, this));
+        m_tcp->connect(m_host, m_port);
     } else {
         trace1("Already connected\n");
         tcp_connected_callback();
@@ -141,23 +159,22 @@ void http_client::send_request() {
 }
 
 void http_client::tcp_connected_callback() {
-    std::string serialized = current_request.serialize();
+    std::string serialized = m_current_request.serialize();
     debug("http_client sending:\n%s\n", serialized.c_str());
-    tcp->write({(uint8_t*)serialized.c_str(), serialized.size()});
-    request_sent = true;
+    m_tcp->write({(uint8_t*)serialized.c_str(), serialized.size()});
+    m_request_sent = true;
 }
 
 void http_client::tcp_recv_callback() {
-    std::string data;
-    data.resize(tcp->available());
-    std::span<uint8_t> span = {(uint8_t*)data.data(), data.size()};
-    tcp->read(span);
-    debug("http_client recv'd:\n%s\n", data.c_str());
-    current_response.parse(data);
-    response_ready = current_response.state == http_response::parse_state::done;
-    if(response_ready) {
-        tcp->on_receive([](){});
-        user_response_callback();
+    uint8_t data[m_tcp->available()];
+    std::span<uint8_t> span = {(uint8_t*)data, (size_t)m_tcp->available()};
+    m_tcp->read(span);
+    debug("http_client recv'd:\n%s\n", (char*)data);
+    m_current_response.parse(span);
+    m_response_ready = m_current_response.state == http_response::parse_state::done;
+    if(m_response_ready) {
+        m_tcp->on_receive([](){});
+        m_user_response_callback();
     }
 }
 
@@ -166,7 +183,7 @@ void http_client::tcp_closed_callback() {
 }
 
 bool http_client::connected() const {
-    return tcp->connected();
+    return m_tcp->connected();
 }
 
 bool http_client::has_error() const {

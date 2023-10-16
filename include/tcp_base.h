@@ -22,6 +22,7 @@ public:
 
     virtual bool connected() const = 0;
     virtual bool initialized() const = 0;
+    virtual bool secure() const = 0;
 
     virtual void on_receive(std::function<void()> callback) = 0;
     virtual void on_connected(std::function<void()> callback) = 0;

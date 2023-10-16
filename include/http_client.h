@@ -16,6 +16,8 @@ public:
     http_client& operator=(http_client&&) = default;
     ~http_client();
 
+    void url(std::string new_url);
+
     void get(std::string target, std::string body = "");
     void post(std::string target, std::string body = "");
     void put(std::string target, std::string body = "");
@@ -33,11 +35,11 @@ public:
     }
 
     bool has_response() const {
-        return response_ready;
+        return m_response_ready;
     }
 
     bool sent_request() const {
-        return request_sent;
+        return m_request_sent;
     }
 
     bool connected() const;
@@ -46,29 +48,29 @@ public:
     void clear_error();
 
     const http_response &response() {
-        return current_response;
+        return m_current_response;
     }
 
     void on_response(std::function<void()> callback) {
-        user_response_callback = callback;
+        m_user_response_callback = callback;
     }
 
     tcp_base *release_tcp_client();
 
     LUrlParser::ParseURL get_parsed_url() const {
-        return URL;
+        return m_url_parser;
     }
 
 private:
-    tcp_base *tcp;
-    bool response_ready = false, request_sent = false, m_has_error = false;
-    http_request current_request;
-    http_response current_response;
-    std::string host_, url_;
-    std::span<uint8_t> cert;
-    int port_;
-    LUrlParser::ParseURL URL;
-    std::function<void()> user_response_callback;
+    tcp_base *m_tcp;
+    bool m_response_ready = false, m_request_sent = false, m_has_error = false;
+    http_request m_current_request;
+    http_response m_current_response;
+    std::string m_host, m_url;
+    std::span<uint8_t> m_cert;
+    int m_port;
+    LUrlParser::ParseURL m_url_parser;
+    std::function<void()> m_user_response_callback;
 
     bool init();
     void send_request();
