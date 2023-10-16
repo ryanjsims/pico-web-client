@@ -98,7 +98,7 @@ tcp_base *http_client::release_tcp_client() {
 
 bool http_client::init() {
     trace1("http_client::init entered\n");
-    debug("http_client::init Parsing URL '%s'\n", url_.c_str());
+    debug("http_client::init Parsing URL '%s'\n", m_url.c_str());
     m_url_parser = LUrlParser::ParseURL::parseURL(m_url);
     if(!m_url_parser.isValid()) {
         error("Invalid URL: %s\n", m_url.c_str());
@@ -109,7 +109,7 @@ bool http_client::init() {
     m_host = m_url_parser.host_;
     if(m_url_parser.port_.size() > 0)
         m_url_parser.getPort(&m_port);
-    debug("http_client::init got host '%s'\n", host_.c_str());
+    debug("http_client::init got host '%s'\n", m_host.c_str());
     if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss") && (m_tcp == nullptr || !m_tcp->secure())) {
         debug1("http_client::init creating new tcp_tls_client\n");
         if(m_tcp) {
@@ -141,7 +141,7 @@ bool http_client::init() {
 
 void http_client::send_request() {
     trace1("http_client::send_request entered\n");
-    debug("http_client::send_request (tcp = %p)\n", tcp);
+    debug("http_client::send_request (tcp = %p)\n", m_tcp);
     m_response_ready = false;
     trace1("http_client::send_request Adding headers\n");
     m_current_request.add_header("Host", m_host);
