@@ -25,6 +25,7 @@ class http_response {
     };
 public:
     http_response(const http_request *request = nullptr);
+    ~http_response();
     void parse(std::span<uint8_t> data);
     void parse_line(std::string_view line);
     const std::map<std::string, std::string_view> &get_headers() const;

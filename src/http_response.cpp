@@ -22,6 +22,14 @@ http_response::http_response(const http_request *request)
 #endif
 }
 
+http_response::~http_response() {
+#ifndef HTTP_STATIC_SIZE
+    if(data) {
+        free(data);
+    }
+#endif
+}
+
 void http_response::parse(std::span<uint8_t> chunk) {
     debug1("Parsing http response:\n");
     add_data(chunk);
