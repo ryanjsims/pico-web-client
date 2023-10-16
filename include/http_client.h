@@ -47,7 +47,7 @@ public:
 
     void clear_error();
 
-    const http_response &response() {
+    http_response &response() {
         return m_current_response;
     }
 

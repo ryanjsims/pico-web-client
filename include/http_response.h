@@ -29,9 +29,9 @@ public:
     void parse_line(std::string_view line);
     const std::map<std::string, std::string_view> &get_headers() const;
     uint16_t status() const;
-    const std::string_view &get_status_text() const;
-    const std::string_view &get_protocol() const;
-    const std::string_view &get_body() const;
+    std::string_view &get_status_text();
+    std::string_view &get_protocol();
+    std::string_view &get_body();
     // Copies data from parameter into the response
     void add_data(std::span<uint8_t> data);
     void clear();
