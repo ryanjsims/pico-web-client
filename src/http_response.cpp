@@ -30,6 +30,20 @@ http_response::~http_response() {
 #endif
 }
 
+http_response &http_response::operator=(http_response&& moved) {
+    this->data = std::move(moved.data);
+    this->request = moved.request;
+    this->state = moved.state;
+    this->status_code = moved.status_code;
+    this->type = moved.type;
+    this->index = moved.index;
+    this->capacity = moved.capacity;
+    moved.data = nullptr;
+    moved.index = 0;
+    moved.capacity = 0;
+    return *this;
+}
+
 void http_response::parse(std::span<uint8_t> chunk) {
     debug1("Parsing http response:\n");
     add_data(chunk);
