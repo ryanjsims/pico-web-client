@@ -28,6 +28,7 @@ http_response::~http_response() {
     trace1("http_response dtor entered\n");
 #ifndef HTTP_STATIC_SIZE
     if(data) {
+        debug1("http_response::~http_response: Freeing data\n");
         free(data);
     }
 #endif

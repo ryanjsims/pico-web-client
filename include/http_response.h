@@ -3,7 +3,7 @@
 #include <span>
 
 #ifndef HTTP_STATIC_SIZE
-#define HTTP_DEFAULT_CAPACITY 2048
+#define HTTP_DEFAULT_CAPACITY 2560
 #else
 #define HTTP_DEFAULT_CAPACITY 49152
 #endif
