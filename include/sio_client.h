@@ -277,7 +277,7 @@ private:
     alarm_id_t watchdog_extender = 0;
 
     void http_response_callback() {
-        info("Got http response: %d %s\n", http->response().status(), http->response().get_status_text().data());
+        info("Got http response: %d %s\n", http->response().status(), std::string(http->response().get_status_text()).c_str());
         
         if(http->response().status() == 101) {
             trace1("sio_client: creating engine\n");

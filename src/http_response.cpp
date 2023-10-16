@@ -139,15 +139,15 @@ uint16_t http_response::status() const {
     return status_code;
 }
 
-std::string_view &http_response::get_status_text() {
+const std::string_view &http_response::get_status_text() const {
     return status_text;
 }
 
-std::string_view &http_response::get_protocol() {
+const std::string_view &http_response::get_protocol() const {
     return protocol;
 }
 
-std::string_view &http_response::get_body() {
+const std::string_view &http_response::get_body() const {
     return body;
 }
 
