@@ -44,7 +44,7 @@ public:
 
 private:
     uint16_t status_code;
-    int content_length = -1;
+    int content_length = -1, body_start = 0;
     std::string_view protocol, status_text, body;
 #ifndef HTTP_STATIC_SIZE
     uint8_t* data;

@@ -53,17 +53,22 @@ http_response &http_response::operator=(http_response&& moved) {
 void http_response::parse(std::span<uint8_t> chunk) {
     trace("http_response::parse entered with chunk of size %d\n", chunk.size());
     debug1("Parsing http response:\n");
+    uint32_t start_index = index;
     add_data(chunk);
 
-    std::string_view data_view = {(char*)data, index};
+    std::string_view data_view = {(char*)data + start_index, (char*)data + index};
     size_t line_start = 0, line_end = data_view.find("\r\n");
     while(line_end != std::string::npos && (state != parse_state::body || type != content_type::binary)) {
+        trace("http_response::parse start of while loop\n    line_start = %d\n    line_end = %d\n", line_start, line_end);
         parse_line({data_view.begin() + line_start, data_view.begin() + line_end});
         line_start = line_end + 2;
         line_end = data_view.find("\r\n", line_start);
+        trace1("http_response::parse end of while loop\n");
     }
     if(line_start < data_view.size() && state != parse_state::done) {
-        parse_line({data_view.begin() + line_start, data_view.end()});
+        trace("http_response::parse start of if statement\n    line_start = %d\n    line_end = %d\n", line_start, line_end);
+        parse_line(std::string_view(data_view.begin() + line_start, data_view.end()));
+        trace1("http_response::parse end of if statement\n");
     }
     trace1("http_response::parse exited\n");
 }
@@ -123,7 +128,7 @@ void http_response::parse_line(std::string_view line) {
                 state = parse_state::done;
             } else {
                 state = parse_state::body;
-                body = {line.end() + 2, 0};
+                body_start = (uint32_t)line.end() - (uint32_t)data + 2;
             }
             break;
         }
@@ -152,7 +157,8 @@ void http_response::parse_line(std::string_view line) {
         } else {
             debug("Parsing body:\n(binary length %d)\n", line.size());
         }
-        body = {body.begin(), line.end()};
+        body = {(char*)data + body_start, (char*)data + index};
+        debug("Body has size %d/%d\n", body.size(), content_length);
         if(body.size() == content_length) {
             debug1("Transition to done\n");
             state = parse_state::done;
@@ -162,7 +168,7 @@ void http_response::parse_line(std::string_view line) {
         error1("Shouldn't happen? parse_state == done\n");
         break;
     }
-    trace1("http_response::clear exited\n");
+    trace1("http_response::parse_line exited\n");
 }
 
 const std::map<std::string, std::string_view>& http_response::get_headers() const {
