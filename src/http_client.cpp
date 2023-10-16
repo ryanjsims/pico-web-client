@@ -10,21 +10,27 @@ http_client::http_client(std::string url, std::span<uint8_t> cert)
     , m_port(-1)
     , m_cert(cert)
 {
+    trace1("http_client ctor entered\n");
     init();
+    trace1("http_client ctor exited\n");
 }
 
 http_client::~http_client() {
+    trace1("http_client dtor entered\n");
     if(m_tcp) {
         delete m_tcp;
     }
     debug1("~http_client\n");
+    trace1("http_client dtor exited\n");
 }
 
 void http_client::url(std::string new_url) {
+    trace("http_client::url entered with new_url of '%s'\n", new_url.c_str());
     m_url = new_url;
     if(m_tcp && m_tcp->connected()) {
         m_tcp->close(ERR_OK);
     }
+    trace1("http_client::url exited\n");
 }
 
 void http_client::get(std::string target, std::string body) {
@@ -56,14 +62,17 @@ void http_client::options(std::string target, std::string body) {
 }
 
 void http_client::header(std::string key, std::string value) {
+    trace1("http_client::header entered\n");
     if(m_request_sent) {
         m_current_request.clear();
         m_request_sent = false;
     }
     m_current_request.add_header(key, value);
+    trace1("http_client::header exited\n");
 }
 
 void http_client::send_request(std::string method, std::string target, std::string body) {
+    trace("http_client::send_request entered with:\n    method '%s'\n    target '%s'\n    body '%s'\n", method.c_str(), target.c_str(), body.c_str());
     if(m_request_sent) {
         m_current_request.clear();
         m_request_sent = false;
@@ -73,22 +82,27 @@ void http_client::send_request(std::string method, std::string target, std::stri
     m_current_request.body_ = body;
     m_current_request.ready_ = true;
     send_request();
+    trace1("http_client::send_request exited\n");
 }
 
 tcp_base *http_client::release_tcp_client() {
+    trace1("http_client::release_tcp_client entered\n");
     m_tcp->on_connected([](){});
     m_tcp->on_receive([](){});
     m_tcp->on_closed([](err_t){});
     tcp_base *to_return = m_tcp;
     m_tcp = nullptr;
+    trace1("http_client::release_tcp_client exited\n");
     return std::move(to_return);
 }
 
 bool http_client::init() {
+    trace1("http_client::init entered\n");
     debug("http_client::init Parsing URL '%s'\n", url_.c_str());
     m_url_parser = LUrlParser::ParseURL::parseURL(m_url);
     if(!m_url_parser.isValid()) {
         error("Invalid URL: %s\n", m_url.c_str());
+        trace1("http_client::init exited\n");
         return false;
     }
 
@@ -117,16 +131,19 @@ bool http_client::init() {
     }
     if(!m_tcp) {
         error1("http_client::init failed to create new tcp_client\n");
+        trace1("http_client::init exited\n");
         m_has_error = true;
         return false;
     }
+    trace1("http_client::init exited\n");
     return true;
 }
 
 void http_client::send_request() {
+    trace1("http_client::send_request entered\n");
     debug("http_client::send_request (tcp = %p)\n", tcp);
     m_response_ready = false;
-    trace1("Adding headers\n");
+    trace1("http_client::send_request Adding headers\n");
     m_current_request.add_header("Host", m_host);
     m_current_request.add_header("User-Agent", "pico");
     if(m_current_request.body_.size() > 0) {
@@ -136,7 +153,7 @@ void http_client::send_request() {
     if(m_current_response.request == nullptr) {
         m_current_response = http_response(&m_current_request);
     }
-    trace1("Adding callbacks\n");
+    trace1("http_client::send_request Adding callbacks\n");
     m_tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
     m_tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
 
@@ -144,28 +161,33 @@ void http_client::send_request() {
 
     if(!init) {
         error1("http_client::send_request: Could not initialize tcp client\n");
+        trace1("http_client::send_request exited\n");
         m_has_error = true;
         return;
     }
 
     if(!m_tcp->connected()) {
-        trace1("Connecting TCP\n");
+        trace1("http_client::send_request Connecting TCP\n");
         m_tcp->on_connected(std::bind(&http_client::tcp_connected_callback, this));
         m_tcp->connect(m_host, m_port);
     } else {
-        trace1("Already connected\n");
+        trace1("http_client::send_request Already connected\n");
         tcp_connected_callback();
     }
+    trace1("http_client::send_request exited\n");
 }
 
 void http_client::tcp_connected_callback() {
+    trace1("http_client::tcp_connected_callback entered\n");
     std::string serialized = m_current_request.serialize();
     debug("http_client sending:\n%s\n", serialized.c_str());
     m_tcp->write({(uint8_t*)serialized.c_str(), serialized.size()});
     m_request_sent = true;
+    trace1("http_client::tcp_connected_callback exited\n");
 }
 
 void http_client::tcp_recv_callback() {
+    trace1("http_client::tcp_recv_callback entered\n");
     uint8_t data[m_tcp->available()];
     std::span<uint8_t> span = {(uint8_t*)data, (size_t)m_tcp->available()};
     m_tcp->read(span);
@@ -176,6 +198,7 @@ void http_client::tcp_recv_callback() {
         m_tcp->on_receive([](){});
         m_user_response_callback();
     }
+    trace1("http_client::tcp_recv_callback exited\n");
 }
 
 void http_client::tcp_closed_callback() {

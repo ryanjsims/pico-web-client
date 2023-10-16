@@ -14,23 +14,28 @@ http_response::http_response(const http_request *request)
     , index(0)
     , capacity(HTTP_DEFAULT_CAPACITY)
 {
+    trace1("http_response ctor entered\n");
 #ifndef HTTP_STATIC_SIZE
     data = (uint8_t*)malloc(capacity);
     if(data == nullptr) {
         error1("http_response::http_response: could not allocate buffer\n");
     }
 #endif
+    trace1("http_response ctor exited\n");
 }
 
 http_response::~http_response() {
+    trace1("http_response dtor entered\n");
 #ifndef HTTP_STATIC_SIZE
     if(data) {
         free(data);
     }
 #endif
+    trace1("http_response dtor exited\n");
 }
 
 http_response &http_response::operator=(http_response&& moved) {
+    trace1("http_response move assignment operator entered\n");
     this->data = std::move(moved.data);
     this->request = moved.request;
     this->state = moved.state;
@@ -41,10 +46,12 @@ http_response &http_response::operator=(http_response&& moved) {
     moved.data = nullptr;
     moved.index = 0;
     moved.capacity = 0;
+    trace1("http_response move assignment operator exited\n");
     return *this;
 }
 
 void http_response::parse(std::span<uint8_t> chunk) {
+    trace("http_response::parse entered with chunk of size %d\n", chunk.size());
     debug1("Parsing http response:\n");
     add_data(chunk);
 
@@ -58,9 +65,11 @@ void http_response::parse(std::span<uint8_t> chunk) {
     if(line_start < data_view.size() && state != parse_state::done) {
         parse_line({data_view.begin() + line_start, data_view.end()});
     }
+    trace1("http_response::parse exited\n");
 }
 
 void http_response::clear() {
+    trace1("http_response::clear entered\n");
     status_code = 0;
     state = parse_state::status_line;
     status_text = {};
@@ -79,9 +88,11 @@ void http_response::clear() {
     }
 #endif
     headers.clear();
+    trace1("http_response::clear exited\n");
 }
 
 void http_response::parse_line(std::string_view line) {
+    trace("http_response::parse_line entered with line of size %d\n", line.size());
     size_t token_start, token_end;
     switch(state) {
     case parse_state::status_line:
@@ -151,6 +162,7 @@ void http_response::parse_line(std::string_view line) {
         error1("Shouldn't happen? parse_state == done\n");
         break;
     }
+    trace1("http_response::clear exited\n");
 }
 
 const std::map<std::string, std::string_view>& http_response::get_headers() const {
@@ -174,6 +186,7 @@ const std::string_view &http_response::get_body() const {
 }
 
 void http_response::add_data(std::span<uint8_t> data) {
+    trace("http_response::add_data entered with data of size %d\n", data.size());
     if(index + data.size() >= capacity) {
 #ifdef HTTP_STATIC_SIZE
         error("http_response: Cannot add data of length %d - would exceed static capacity of %d\n", data.size(), capacity);
@@ -189,6 +202,7 @@ void http_response::add_data(std::span<uint8_t> data) {
     }
     memcpy(this->data + index, data.data(), data.size());
     index += data.size();
+    trace1("http_response::add_data exited\n");
 }
 
 bool http_response::only_parse_headers() {
