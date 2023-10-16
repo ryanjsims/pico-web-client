@@ -272,4 +272,5 @@ void tcp_tls_client::err_callback(void* arg, err_t err) {
     if (err != ERR_ABRT) {
         client->close(err);
     }
+    client->user_error_callback(err);
 }

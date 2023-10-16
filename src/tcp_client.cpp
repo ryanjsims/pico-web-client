@@ -250,6 +250,7 @@ void tcp_client::err_callback(void* arg, err_t err) {
     if (err != ERR_ABRT) {
         client->close(err);
     }
+    client->user_error_callback(err);
 }
 
 err_t tcp_client::connected_callback(void* arg, tcp_pcb* pcb, err_t err) {

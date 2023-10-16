@@ -42,6 +42,10 @@ public:
         user_closed_callback = callback;
     }
 
+    void on_error(std::function<void(err_t)> callback) override {
+        user_error_callback = callback;
+    }
+
     void clear_pcb() {
         tcp_controlblock = nullptr;
     }
@@ -55,7 +59,7 @@ protected:
     bool connected_, initialized_;
     uint16_t port_;
     std::function<void()> user_receive_callback, user_connected_callback, user_poll_callback;
-    std::function<void(err_t)> user_closed_callback;
+    std::function<void(err_t)> user_closed_callback, user_error_callback;
 
     bool connect();
 
