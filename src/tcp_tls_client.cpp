@@ -220,8 +220,6 @@ void tcp_tls_client::err_callback(void* arg, err_t err) {
     tcp_tls_client *client = (tcp_tls_client*)arg;
     error("TCP error: code %s\n", tcp_perror(err).c_str());
     client->clear_pcb();
-    if (err != ERR_ABRT) {
-        client->close(err);
-    }
+    client->close(err);
     client->user_error_callback(err);
 }

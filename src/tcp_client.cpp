@@ -192,9 +192,7 @@ void tcp_client::err_callback(void* arg, err_t err) {
     tcp_client *client = (tcp_client*)arg;
     error("TCP error: code %s\n", tcp_perror(err).c_str());
     client->clear_pcb();
-    if (err != ERR_ABRT) {
-        client->close(err);
-    }
+    client->close(err);
     client->user_error_callback(err);
 }
 
@@ -246,5 +244,7 @@ std::string tcp_perror(err_t err) {
         return "ERR_VAL";
     case ERR_WOULDBLOCK:
         return "ERR_WOULDBLOCK";
+    default:
+        return "ERR not recognized!";
     }
 }
