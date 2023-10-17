@@ -26,12 +26,58 @@ http_client::~http_client() {
 }
 
 void http_client::url(std::string new_url) {
-    trace("http_client::url entered with new_url of '%s'\n", new_url.c_str());
+    trace("http_client::url entered with new_url of '%*s'\n", new_url.size(), new_url.data());
     m_url = new_url;
-    if(m_tcp && m_tcp->connected()) {
+    if(m_tcp) {
         m_tcp->close(ERR_OK);
     }
+    parse_url();
     trace1("http_client::url exited\n");
+}
+
+bool http_client::parse_url() {
+    debug("http_client::parse_url '%*s'\n", m_url.size(), m_url.data());
+    m_url_parser = LUrlParser::ParseURL::parseURL(m_url);
+    if(!m_url_parser.isValid()) {
+        error("Invalid URL: %*s\n", m_url.size(), m_url.data());
+        trace1("http_client::parse_url exited\n");
+        return false;
+    }
+
+    m_host = m_url_parser.host_;
+    if(m_url_parser.port_.size() > 0)
+        m_url_parser.getPort(&m_port);
+    debug("http_client::parse_url got host '%*s'\n", m_host.size(), m_host.data());
+
+    if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss")) {
+        if(m_tcp && !m_tcp->secure()) {
+            delete m_tcp;
+            m_tcp = nullptr;
+        }
+
+        if(m_tcp == nullptr) {
+            debug1("http_client::parse_url creating new tcp_tls_client\n");
+            m_tcp = new tcp_tls_client(m_cert);
+        }
+        if(m_port == -1) {
+            m_port = 443;
+        }
+    } else {
+        if(m_tcp && m_tcp->secure()) {
+            delete m_tcp;
+            m_tcp = nullptr;
+        }
+
+        if(m_tcp == nullptr) {
+            debug1("http_client::parse_url creating new tcp_client\n");
+            m_tcp = new tcp_client();
+        }
+        if(m_port == -1) {
+            m_port = 80;
+        }
+    }
+    trace1("http_client::parse_url exited\n");
+    return true;
 }
 
 void http_client::get(std::string target, std::string body) {
@@ -100,46 +146,7 @@ tcp_base *http_client::release_tcp_client() {
 
 bool http_client::init() {
     trace1("http_client::init entered\n");
-    debug("http_client::init Parsing URL '%s'\n", m_url.c_str());
-    m_url_parser = LUrlParser::ParseURL::parseURL(m_url);
-    if(!m_url_parser.isValid()) {
-        error("Invalid URL: %s\n", m_url.c_str());
-        trace1("http_client::init exited\n");
-        return false;
-    }
-
-    m_host = m_url_parser.host_;
-    if(m_url_parser.port_.size() > 0)
-        m_url_parser.getPort(&m_port);
-    debug("http_client::init got host '%s'\n", m_host.c_str());
-
-    if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss")) {
-        debug1("http_client::init creating new tcp_tls_client\n");
-        if(m_tcp && !m_tcp->secure()) {
-            delete m_tcp;
-            m_tcp = nullptr;
-        }
-
-        if(m_tcp == nullptr) {
-            m_tcp = new tcp_tls_client(m_cert);
-        }
-        if(m_port == -1) {
-            m_port = 443;
-        }
-    } else {
-        debug1("http_client::init creating new tcp_client\n");
-        if(m_tcp && m_tcp->secure()) {
-            delete m_tcp;
-            m_tcp = nullptr;
-        }
-
-        if(m_tcp == nullptr) {
-            m_tcp = new tcp_client();
-        }
-        if(m_port == -1) {
-            m_port = 80;
-        }
-    }
+    bool to_return = parse_url();
     if(!m_tcp) {
         error1("http_client::init failed to create new tcp_client\n");
         trace1("http_client::init exited\n");
@@ -148,7 +155,7 @@ bool http_client::init() {
     }
     debug("http_client::init: tcp client %p created\n", m_tcp);
     trace1("http_client::init exited\n");
-    return true;
+    return to_return;
 }
 
 void http_client::send_request() {

@@ -75,6 +75,7 @@ private:
 
     bool init();
     void send_request();
+    bool parse_url();
 
     void tcp_connected_callback();
     void tcp_recv_callback();
