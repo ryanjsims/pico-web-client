@@ -116,7 +116,7 @@ err_t tcp_tls_client::close(err_t reason) {
 }
 
 bool tcp_tls_client::connect(std::string hostname, uint16_t port) {
-    info("tcp_tls_client::connect to %s:%d\n", hostname.c_str(), port);
+    info("tcp_tls_client::connect to %*s:%d\n", hostname.size(), hostname.data(), port);
     debug1("Setting mbedtls hostname...\n");
     mbedtls_ssl_context* ssl_context = (mbedtls_ssl_context*)altcp_tls_context(tcp_controlblock);
     debug("ssl_context = %p\n", ssl_context);
@@ -160,7 +160,8 @@ err_t tcp_tls_client::connected_callback(void* arg, altcp_pcb* pcb, err_t err) {
     tcp_tls_client *client = (tcp_tls_client*)arg;
     debug1("tcp_tls_client::connected_callback\n");
     if(err != ERR_OK) {
-        error("connect failed with error code %s\n", tcp_perror(err).c_str());
+        std::string err_str = tcp_perror(err);
+        error("connect failed with error code %*s\n", err_str.size(), err_str.data());
         return client->close(err);
     }
     client->connected_ = true;
@@ -218,7 +219,8 @@ err_t tcp_tls_client::sent_callback(void* arg, altcp_pcb* pcb, uint16_t len) {
 
 void tcp_tls_client::err_callback(void* arg, err_t err) {
     tcp_tls_client *client = (tcp_tls_client*)arg;
-    error("TCP error: code %s\n", tcp_perror(err).c_str());
+    std::string err_str = tcp_perror(err);
+    error("TCP error: code %*s\n", err_str.size(), err_str.data());
     client->clear_pcb();
     client->close(err);
     client->user_error_callback(err);

@@ -119,7 +119,7 @@ void http_client::header(std::string key, std::string value) {
 }
 
 void http_client::send_request(std::string method, std::string target, std::string body) {
-    trace("http_client::send_request entered with:\n    method '%s'\n    target '%s'\n    body '%s'\n", method.c_str(), target.c_str(), body.c_str());
+    trace("http_client::send_request entered with:\n    method '%*s'\n    target '%*s'\n    body '%*s'\n", method.size(), method.data(), target.size(), target.data(), body.size(), body.data());
     if(m_request_sent) {
         m_current_request.clear();
         m_request_sent = false;
@@ -200,8 +200,8 @@ void http_client::send_request() {
 void http_client::tcp_connected_callback() {
     trace1("http_client::tcp_connected_callback entered\n");
     std::string serialized = m_current_request.serialize();
-    debug("http_client sending:\n%s\n", serialized.c_str());
-    m_tcp->write({(uint8_t*)serialized.c_str(), serialized.size()});
+    debug("http_client sending:\n%*s\n", serialized.size(), serialized.data());
+    m_tcp->write({(uint8_t*)serialized.data(), serialized.size()});
     m_request_sent = true;
     trace1("http_client::tcp_connected_callback exited\n");
 }

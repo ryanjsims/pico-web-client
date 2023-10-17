@@ -8,11 +8,11 @@ http_request::http_request(): method_(""), target_(""), body_("") {
 
 http_request::http_request(std::string method, std::string target, std::string body): method_(method), target_(target), body_(body) {
     ready_ = true;
-    trace("http_request ctor called with\n    method = '%s'\n    target = '%s'\n    body = '%s'\n", method.c_str(), target.c_str(), body.c_str());
+    trace("http_request ctor called with\n    method = '%*s'\n    target = '%*s'\n    body = '%*s'\n", method.size(), method.data(), target.size(), target.data(), body.size(), body.data());
 }
 
 void http_request::add_header(std::string key, std::string value) {
-    trace("http_request::add_header called with '%s' = '%s'\n", key.c_str(), value.c_str());
+    trace("http_request::add_header called with '%*s' = '%*s'\n", key.size(), key.data(), value.size(), value.data());
     headers[key] = value;
 }
 
