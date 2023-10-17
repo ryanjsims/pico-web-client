@@ -26,9 +26,11 @@ tcp_tls_client::tcp_tls_client(std::span<uint8_t> cert)
 }
 
 tcp_tls_client::~tcp_tls_client() {
+    trace1("tcp_tls_client dtor entered\n");
     cyw43_arch_lwip_begin();
     altcp_close(tcp_controlblock);
     cyw43_arch_lwip_end();
+    trace1("tcp_tls_client dtor exited\n");
 }
 
 bool tcp_tls_client::init() {
@@ -68,11 +70,18 @@ bool tcp_tls_client::initialized() const {
     return initialized_;
 }
 
+#define MAX_WRITE_BYTE_OUTPUT 256
+
 bool tcp_tls_client::write(std::span<const uint8_t> data) {
     #if LOG_LEVEL <= LOG_LEVEL_DEBUG
     debug("tcp_tls_client::write data=%p size=%d\n", data.data(), data.size());
-    for(int i = 0; i < data.size(); i++) {
-        debug_cont("%02x ", data[i]);
+    for (uint32_t i = 0; i < data.size() && i < MAX_WRITE_BYTE_OUTPUT;) {
+        if ((i & 0x0f) == 0 && i != 0) {
+            debug_cont1("\n");
+        } else if ((i & 0x07) == 0 && i != 0) {
+            debug_cont1(" ");
+        }
+        debug_cont("%02x ", data[i++]);
     }
     debug_cont1("\n");
     #endif

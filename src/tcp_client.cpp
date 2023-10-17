@@ -30,7 +30,9 @@ tcp_client::tcp_client()
 }
 
 tcp_client::~tcp_client() {
+    trace1("tcp_client dtor entered\n");
     close(ERR_OK);
+    trace1("tcp_client dtor exited\n");
 }
 
 bool tcp_client::init() {

@@ -146,6 +146,7 @@ bool http_client::init() {
         m_has_error = true;
         return false;
     }
+    debug("http_client::init: tcp client %p created\n", m_tcp);
     trace1("http_client::init exited\n");
     return true;
 }
@@ -198,12 +199,29 @@ void http_client::tcp_connected_callback() {
     trace1("http_client::tcp_connected_callback exited\n");
 }
 
+#define MAX_RECV_BYTE_OUTPUT 256
+
 void http_client::tcp_recv_callback() {
     trace1("http_client::tcp_recv_callback entered\n");
     uint8_t data[m_tcp->available()];
     std::span<uint8_t> span = {(uint8_t*)data, (size_t)m_tcp->available()};
     m_tcp->read(span);
-    debug("http_client recv'd:\n%s\n", (char*)data);
+    #if LOG_LEVEL <= LOG_LEVEL_DEBUG
+    if(m_current_response.state != http_response::parse_state::body || m_current_response.type != http_response::content_type::binary) {
+        debug("http_client recv'd:\n%s\n", (char*)data);
+    } else {
+        debug("http_client recv'd %d bytes\n", span.size());
+        for (uint32_t i = 0; i < span.size() && i < MAX_RECV_BYTE_OUTPUT;) {
+            if ((i & 0x0f) == 0 && i != 0) {
+                debug_cont1("\n");
+            } else if ((i & 0x07) == 0 && i != 0) {
+                debug_cont1(" ");
+            }
+            debug_cont("%02x ", span[i++]);
+        }
+        debug_cont1("\n");
+    }
+    #endif
     m_current_response.parse(span);
     m_response_ready = m_current_response.state == http_response::parse_state::done;
     if(m_response_ready) {
