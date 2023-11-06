@@ -25,7 +25,7 @@ bool sio_socket::emit(std::string event, nlohmann::json array) {
         array.insert(array.begin(), event);
     }
     packet += array.dump();
-    debug("emit:\n\tNamespace '%s'\n\tpacket: '%s'\n", m_namespace.c_str(), packet.c_str());
+    debug("emit:\n\tNamespace '%s'\n\tpacket: '%s'\n", m_namespace.c_str(), packet.c_str() + 15);
     if(m_engine) {
         return m_engine->send_message(packet.span());
     }
