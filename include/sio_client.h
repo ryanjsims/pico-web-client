@@ -34,6 +34,7 @@ public:
 
     void open();
     void on_open(std::function<void()> callback);
+    void on_close(std::function<void(err_t)> callback);
 
     void connect(std::string ns = "/");
     void disconnect(std::string ns = "/");
@@ -48,15 +49,14 @@ public:
     void run();
 
 private:
-    eio_client *engine;
-    http_client *http;
-    std::map<std::string, std::unique_ptr<sio_socket>> namespace_connections;
-    std::function<void()> user_open_callback;
-    std::function<void(err_t)> user_close_callback;
-    std::string raw_url, query_string;
-    bool open_ = false;
-    absolute_time_t reconnect_time;
-    alarm_id_t watchdog_extender = 0;
+    eio_client *m_engine;
+    http_client *m_http;
+    std::map<std::string, std::unique_ptr<sio_socket>> m_namespace_connections;
+    std::function<void()> m_user_open_callback;
+    std::string m_raw_url, m_query_string;
+    bool m_open = false;
+    absolute_time_t m_reconnect_time;
+    alarm_id_t m_watchdog_extender = 0;
 
     void http_response_callback();
     void engine_recv_callback();
