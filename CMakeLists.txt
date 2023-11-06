@@ -27,7 +27,7 @@ add_library(pico_web_client
     src/eio_client.cpp
     src/sio_client.cpp
     src/LUrlParser.cpp
-    src/utils.cpp
+    src/wifi_utils.cpp
 )
 
 target_include_directories(pico_web_client PUBLIC include lib/json/single_include)

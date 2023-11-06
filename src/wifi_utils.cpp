@@ -1,7 +1,6 @@
-#include "utils.h"
+#include "wifi_utils.h"
 
 #include "logger.h"
-#include <pico/cyw43_arch.h>
 
 static int old_status = CYW43_LINK_DOWN;
 
