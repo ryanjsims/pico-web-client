@@ -29,19 +29,26 @@ public:
         binary_ack
     };
 
+    enum class client_state {
+        disconnected,
+        connecting,
+        connected,
+        error
+    };
+
     sio_client(std::string url, std::map<std::string, std::string> query);
     ~sio_client();
 
     void open();
     void on_open(std::function<void()> callback);
-    void on_close(std::function<void(err_t)> callback);
 
     void connect(std::string ns = "/");
     void disconnect(std::string ns = "/");
     std::unique_ptr<sio_socket> &socket(std::string ns = "/");
     void reconnect();
 
-    bool ready();
+    bool ready() const;
+    client_state state() const;
 
     void set_refresh_watchdog();
 
@@ -55,6 +62,7 @@ private:
     std::function<void()> m_user_open_callback;
     std::string m_raw_url, m_query_string;
     bool m_open = false;
+    client_state m_state = client_state::disconnected;
     absolute_time_t m_reconnect_time;
     alarm_id_t m_watchdog_extender = 0;
 

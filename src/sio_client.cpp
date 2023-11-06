@@ -52,6 +52,7 @@ void sio_client::open() {
     m_http->header("Sec-WebSocket-Version", "13");
 
     m_http->get("/socket.io/" + m_query_string);
+    m_state = client_state::connecting;
 }
 
 void sio_client::connect(std::string ns) {
@@ -93,8 +94,12 @@ void sio_client::on_open(std::function<void()> callback) {
     m_user_open_callback = callback;
 }
 
-bool sio_client::ready() {
+bool sio_client::ready() const {
     return m_open;
+}
+
+sio_client::client_state sio_client::state() const {
+    return m_state;
 }
 
 void sio_client::reconnect() {
@@ -158,6 +163,7 @@ void sio_client::http_response_callback() {
         trace1("sio_client: engine created\n");
         if(!m_engine) {
             error1("Engine is nullptr\n");
+            m_state = client_state::error;
             return;
         }
         m_engine->on_open([this](){
@@ -178,24 +184,30 @@ void sio_client::http_response_callback() {
         for(auto iter = m_namespace_connections.begin(); iter != m_namespace_connections.end(); iter++) {
             iter->second->update_engine(m_engine);
         }
+        m_state = client_state::connected;
         m_engine->read_initial_packet();
     }
 }
 
 void sio_client::engine_recv_callback() {
     debug1("sio_client::engine_recv_callback\n");
-    std::string data;
-    data.resize(m_engine->packet_size());
-    m_engine->read({(uint8_t*)data.data(), data.size()});
-    debug("read data: '%s'\n", data.c_str());
+    uint8_t* data = (uint8_t*)malloc(m_engine->packet_size());
+    if(data == nullptr) {
+        error1("engine_recv_callback: Failed to allocate memory for packet!\n");
+        return;
+    }
+    std::span<uint8_t> span = {data, m_engine->packet_size()};
+    std::string_view strview((char*)span.data(), span.size());
+    m_engine->read(span);
+    debug("read data: '%*s'\n", span.size(), (const char*)span.data());
     std::string ns = "/";
     nlohmann::json body;
     trace1("created json\n");
     size_t tok_start, tok_end;
-    if(data.size() > 1) {
-        if((tok_end = data.find(",")) != std::string::npos && (tok_start = data.find("/")) != std::string::npos && tok_end < data.find("[")) {
+    if(span.size() > 1) {
+        if((tok_end = strview.find(",")) != std::string_view::npos && (tok_start = strview.find("/")) != std::string_view::npos && tok_end < strview.find("[")) {
             tok_start++;
-            ns.append(data.begin() + tok_start, data.begin() + tok_end);
+            ns.append(strview.begin() + tok_start, strview.begin() + tok_end);
         }
     }
     trace1("read namespace\n");
@@ -204,9 +216,9 @@ void sio_client::engine_recv_callback() {
 
     switch((packet_type)data[0]) {
     case packet_type::connect:{
-        if((tok_start = data.find("{")) != std::string::npos) {
-            tok_end = data.find("}");
-            body = nlohmann::json::parse(data.substr(tok_start, (tok_end + 1) - tok_start));
+        if((tok_start = strview.find("{")) != std::string::npos) {
+            tok_end = strview.find("}");
+            body = nlohmann::json::parse(strview.substr(tok_start, (tok_end + 1) - tok_start));
         }
         if(m_namespace_connections.find(ns) == m_namespace_connections.end()) {
             debug("recv: Creating new socket for namespace '%s'\n", ns.c_str());
@@ -227,15 +239,16 @@ void sio_client::engine_recv_callback() {
         break;
 
     case packet_type::event:
-        if((tok_start = data.find_first_of("[")) != std::string::npos) {
-            tok_end = data.find_last_of("]");
-            body = nlohmann::json::parse(data.substr(tok_start, (tok_end + 1) - tok_start));
+        if((tok_start = strview.find_first_of("[")) != std::string::npos) {
+            tok_end = strview.find_last_of("]");
+            body = nlohmann::json::parse(strview.substr(tok_start, (tok_end + 1) - tok_start));
         }
         if(m_namespace_connections.find(ns) != m_namespace_connections.end()) {
             m_namespace_connections[ns]->event_callback(body);
         }
         break;
     }
+    free(data);
 }
 
 void sio_client::engine_closed_callback(err_t reason) {
@@ -259,4 +272,5 @@ void sio_client::engine_closed_callback(err_t reason) {
 
     m_reconnect_time = make_timeout_time_ms(1000);
     debug("Scheduled reconnect for time %lld\n", m_reconnect_time);
+    m_state = client_state::disconnected;
 }
