@@ -26,6 +26,8 @@ add_library(pico_web_client
     src/websocket.cpp
     src/eio_client.cpp
     src/sio_client.cpp
+    src/sio_packet.cpp
+    src/sio_socket.cpp
     src/LUrlParser.cpp
     src/wifi_utils.cpp
 )
