@@ -269,8 +269,5 @@ void sio_client::engine_closed_callback(err_t reason) {
     for(auto iter = m_namespace_connections.begin(); iter != m_namespace_connections.end(); iter++) {
         iter->second->update_engine(m_engine);
     }
-
-    m_reconnect_time = make_timeout_time_ms(1000);
-    debug("Scheduled reconnect for time %lld\n", m_reconnect_time);
     m_state = client_state::disconnected;
 }
