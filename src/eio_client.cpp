@@ -131,7 +131,7 @@ void eio_client::ws_recv_callback() {
             panic("Out of memory!\n");
         }
         socket_->read({packet, packet_size()});
-        nlohmann::json body = nlohmann::json::parse(packet);
+        nlohmann::json body = nlohmann::json::parse(std::string_view((char*)packet, packet_size()));
         sid = body["sid"];
         ping_interval = body["pingInterval"];
         ping_timeout = body["pingTimeout"];
