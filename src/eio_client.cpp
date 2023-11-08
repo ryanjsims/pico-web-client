@@ -6,28 +6,61 @@
 
 class eio_packet {
 public:
-    eio_packet(): payload(14, ' ') {}
+    eio_packet()
+        : m_capacity(256)
+        , m_size(14)
+    {
+        m_payload = (uint8_t*)malloc(m_capacity);
+        memset(m_payload, ' ', m_size);
+        m_payload[m_size] = 0;
+    }
 
-    eio_packet& operator+=(const std::string rhs) {
-        payload += rhs;
+    ~eio_packet() {
+        if(m_payload) {
+            free(m_payload);
+            m_payload = nullptr;
+        }
+    }
+
+    eio_packet& operator+=(const std::span<uint8_t> rhs) {
+        if(m_size + rhs.size() >= m_capacity) {
+            uint32_t power = log2(m_size + rhs.size());
+            m_capacity = 1 << (power + 1);
+            m_payload = (uint8_t*)realloc(m_payload, m_capacity);
+            if(m_payload == nullptr) {
+                error("eio_packet: Failed to realloc payload to capacity %d!\n", m_capacity);
+                panic("Out of memory");
+            }
+        }
+        memcpy(m_payload + m_size, rhs.data(), rhs.size());
+        m_size += rhs.size();
+        m_payload[m_size] = 0;
         return *this;
     }
 
     eio_packet& operator+=(const char rhs) {
-        payload += rhs;
-        return *this;
+        return operator+=({(uint8_t*)&rhs, 1});
+    }
+
+    eio_packet& operator+=(const std::string &rhs) {
+        return operator+=({(uint8_t*)rhs.data(), rhs.size()});
+    }
+
+    eio_packet& operator+=(const std::string_view &rhs) {
+        return operator+=({(uint8_t*)rhs.data(), rhs.size()});
     }
 
     std::span<uint8_t> span() {
-        return {(uint8_t*)payload.data() + 14, payload.size() - 14};
+        return {m_payload + 14, m_size - 14};
     }
 
     const char* c_str() const noexcept {
-        return payload.c_str();
+        return (const char*)m_payload;
     }
 
 private:
-    std::string payload;
+    uint8_t* m_payload;
+    size_t m_capacity, m_size;
 };
 
 eio_client::eio_client(ws::websocket *socket): socket_(socket), ping_milliseconds(0), open_(false), refresh_watchdog_(false) {
@@ -92,9 +125,12 @@ void eio_client::ws_recv_callback() {
     socket_->read({(uint8_t*)&type, 1});
     switch(type) {
     case packet_type::open:{
-        std::string packet;
-        packet.resize(packet_size());
-        socket_->read({(uint8_t*)packet.data(), packet.size()});
+        uint8_t* packet = (uint8_t*)malloc(packet_size());
+        if(packet == nullptr) {
+            error1("eio_client::ws_recv_callback: failed to allocate open packet data!\n");
+            panic("Out of memory!\n");
+        }
+        socket_->read({packet, packet_size()});
         nlohmann::json body = nlohmann::json::parse(packet);
         sid = body["sid"];
         ping_interval = body["pingInterval"];
@@ -102,6 +138,7 @@ void eio_client::ws_recv_callback() {
         info("EIO Open:\n    sid=%s\n    pingInterval=%d\n    pingTimeout=%d\n", sid.c_str(), ping_interval, ping_timeout);
         open_ = true;
         user_open_callback();
+        free(packet);
         break;
     }
 
