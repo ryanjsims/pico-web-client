@@ -159,6 +159,7 @@ bool ws::websocket::write_frame(std::span<uint8_t> data, opcodes opcode) {
     memcpy(data.data() - data_offset + mask_offset, &masking_key, sizeof(masking_key));
     mask(data, masking_key);
     bool res = tcp->write({data.data() - data_offset, data.size() + data_offset});
+    tcp->flush();
     debug("tcp->write result: %d\n", res);
     return res;
 }
