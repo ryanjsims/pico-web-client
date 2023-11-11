@@ -67,7 +67,17 @@ bool tcp_client::write(std::span<const uint8_t> data) {
     err_t err = tcp_write(tcp_controlblock, data.data(), data.size(), TCP_WRITE_FLAG_COPY);
     cyw43_arch_lwip_end();
 
+    debug("tcp_client::write: tcp_write returned %s\n", tcp_perror(err).c_str());
+
     return err == ERR_OK;
+}
+
+void tcp_client::flush() {
+    cyw43_arch_lwip_begin();
+    err_t err = tcp_output(tcp_controlblock);
+    cyw43_arch_lwip_end();
+
+    debug("tcp_client::flush: tcp_output returned %s\n", tcp_perror(err).c_str());
 }
 
 bool tcp_client::connected() const {

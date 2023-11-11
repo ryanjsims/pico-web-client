@@ -18,6 +18,7 @@ public:
     int available() const override;
     size_t read(std::span<uint8_t> out) override;
     bool write(std::span<const uint8_t> data) override;
+    void flush() override;
     bool connect(ip_addr_t addr, uint16_t port);
     bool connect(std::string addr, uint16_t port) override;
     err_t close(err_t reason) override;

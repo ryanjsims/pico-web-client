@@ -19,6 +19,7 @@ public:
     virtual int available() const = 0;
     virtual size_t read(std::span<uint8_t> out) = 0;
     virtual bool write(std::span<const uint8_t> data) = 0;
+    virtual void flush() = 0;
     virtual bool connect(std::string host, uint16_t port) = 0;
     virtual err_t close(err_t reason) = 0;
 
