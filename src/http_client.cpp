@@ -139,7 +139,7 @@ tcp_base *http_client::release_tcp_client() {
     trace1("http_client::release_tcp_client entered\n");
     m_tcp->on_connected([](){});
     m_tcp->on_receive([](){});
-    m_tcp->on_closed([](err_t){});
+    m_tcp->on_closed([](){});
     m_tcp->on_error([](err_t){});
     tcp_base *to_return = m_tcp;
     m_tcp = nullptr;
@@ -177,7 +177,7 @@ void http_client::send_request() {
     }
     trace1("http_client::send_request Adding callbacks\n");
     m_tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
-    m_tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this, std::placeholders::_1));
+    m_tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
     m_tcp->on_error(std::bind(&http_client::tcp_error_callback, this, std::placeholders::_1));
 
     bool init = m_tcp->initialized() || m_tcp->init();
@@ -241,11 +241,9 @@ void http_client::tcp_recv_callback() {
     trace1("http_client::tcp_recv_callback exited\n");
 }
 
-void http_client::tcp_closed_callback(err_t reason) {
-    debug("http_client closed callback called with reason '%s'\n", tcp_perror(reason).c_str());
-    if(reason == ERR_CLSD) {
-        m_user_closed_callback();
-    }
+void http_client::tcp_closed_callback() {
+    debug1("http_client closed callback called\n");
+    m_user_closed_callback();
 }
 
 void http_client::tcp_error_callback(err_t err) {

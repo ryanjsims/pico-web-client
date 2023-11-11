@@ -40,7 +40,7 @@ public:
         user_poll_callback = callback;
     }
 
-    void on_closed(std::function<void(err_t)> callback) override {
+    void on_closed(std::function<void()> callback) override {
         user_closed_callback = callback;
     }
 
@@ -60,8 +60,8 @@ private:
     int sent_len;
     bool connected_, initialized_;
     uint16_t port_;
-    std::function<void()> user_receive_callback, user_connected_callback, user_poll_callback;
-    std::function<void(err_t)> user_closed_callback, user_error_callback;
+    std::function<void()> user_receive_callback, user_connected_callback, user_poll_callback, user_closed_callback;
+    std::function<void(err_t)> user_error_callback;
 
     bool connect();
     static void dns_callback(const char* name, const ip_addr_t *addr, void* arg);

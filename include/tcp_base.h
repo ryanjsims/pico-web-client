@@ -30,6 +30,6 @@ public:
     virtual void on_receive(std::function<void()> callback) = 0;
     virtual void on_connected(std::function<void()> callback) = 0;
     virtual void on_poll(uint8_t interval_seconds, std::function<void()> callback) = 0;
-    virtual void on_closed(std::function<void(err_t)> callback) = 0;
+    virtual void on_closed(std::function<void()> callback) = 0;
     virtual void on_error(std::function<void(err_t)> callback) = 0;
 };

@@ -18,7 +18,9 @@ tcp_tls_client::tcp_tls_client(std::span<uint8_t> cert)
     , user_receive_callback([](){})
     , user_connected_callback([](){})
     , user_poll_callback([](){})
-    , user_closed_callback([](err_t){}) {
+    , user_closed_callback([](){})
+    , user_error_callback([](err_t){})
+{
     if(tls_config == nullptr) {
         debug1("Creating tls_config...\n");
         tls_config = altcp_tls_create_config_client(cert.data(), cert.size());
@@ -121,7 +123,11 @@ err_t tcp_tls_client::close(err_t reason) {
     }
     connected_ = false;
     initialized_ = false;
-    user_closed_callback(reason);
+    if(reason == ERR_CLSD) {
+        user_closed_callback();
+    } else {
+        user_error_callback(reason);
+    }
     return err;
 }
 
@@ -233,5 +239,4 @@ void tcp_tls_client::err_callback(void* arg, err_t err) {
     error("TCP error: code %*s\n", err_str.size(), err_str.data());
     client->clear_pcb();
     client->close(err);
-    client->user_error_callback(err);
 }

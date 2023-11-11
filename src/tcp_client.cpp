@@ -17,7 +17,8 @@ tcp_client::tcp_client()
     , user_receive_callback([](){})
     , user_connected_callback([](){})
     , user_poll_callback([](){})
-    , user_closed_callback([](err_t){})
+    , user_closed_callback([](){})
+    , user_error_callback([](err_t){})
 {
     debug1("Initializing DNS...\n");
     dns_init();
@@ -139,7 +140,11 @@ err_t tcp_client::close(err_t reason) {
     }
     connected_ = false;
     initialized_ = false;
-    user_closed_callback(reason);
+    if(reason == ERR_CLSD) {
+        user_closed_callback();
+    } else {
+        user_error_callback(reason);
+    }
     return err;
 }
 
@@ -203,7 +208,6 @@ void tcp_client::err_callback(void* arg, err_t err) {
     error("TCP error: code %s\n", tcp_perror(err).c_str());
     client->clear_pcb();
     client->close(err);
-    client->user_error_callback(err);
 }
 
 err_t tcp_client::connected_callback(void* arg, tcp_pcb* pcb, err_t err) {
