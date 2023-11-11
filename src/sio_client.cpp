@@ -24,6 +24,7 @@ sio_client::sio_client(std::string url, std::map<std::string, std::string> query
         m_query_string += "&" + iter->first + "=" + iter->second;
     }
     m_http->on_response(std::bind(&sio_client::http_response_callback, this));
+    m_http->on_error(std::bind(&sio_client::http_error_callback, this, std::placeholders::_1));
 }
 
 sio_client::~sio_client() {
@@ -60,6 +61,7 @@ void sio_client::connect(std::string ns) {
         error1("connect: Engine not initialized!\n");
         return;
     }
+    debug("sio_client::connect %s\n", ns.c_str());
     sio_packet payload;
     payload += "0" + (ns != "/" ? ns + "," : "");
     m_engine->send_message(payload.span());
@@ -115,6 +117,7 @@ void sio_client::reconnect() {
     debug1("Creating new http_client\n");
     m_http = new http_client(m_raw_url);
     m_http->on_response(std::bind(&sio_client::http_response_callback, this));
+    m_http->on_error(std::bind(&sio_client::http_error_callback, this, std::placeholders::_1));
     std::function<void()> old_open_callback = m_user_open_callback;
     on_open([&, old_open_callback](){
         for(auto iter = m_namespace_connections.begin(); iter != m_namespace_connections.end(); iter++) {
@@ -187,6 +190,11 @@ void sio_client::http_response_callback() {
         m_state = client_state::connected;
         m_engine->read_initial_packet();
     }
+}
+
+void sio_client::http_error_callback(err_t reason) {
+    error("sio_client::http_error_callback %s\n", tcp_perror(reason).c_str());
+    m_state = client_state::disconnected;
 }
 
 void sio_client::engine_recv_callback() {

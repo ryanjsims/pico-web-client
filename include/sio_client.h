@@ -67,6 +67,7 @@ private:
     alarm_id_t m_watchdog_extender = 0;
 
     void http_response_callback();
+    void http_error_callback(err_t reason);
     void engine_recv_callback();
     void engine_closed_callback(err_t reason);
 };
