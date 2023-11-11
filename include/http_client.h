@@ -55,6 +55,12 @@ public:
     void on_response(std::function<void()> callback) {
         m_user_response_callback = callback;
     }
+    void on_close(std::function<void()> callback) {
+        m_user_closed_callback = callback;
+    }
+    void on_error(std::function<void(err_t)> callback) {
+        m_user_error_callback = callback;
+    }
 
     tcp_base *release_tcp_client();
 
@@ -71,7 +77,8 @@ private:
     std::span<uint8_t> m_cert;
     int m_port;
     LUrlParser::ParseURL m_url_parser;
-    std::function<void()> m_user_response_callback;
+    std::function<void()> m_user_response_callback, m_user_closed_callback;
+    std::function<void(err_t)> m_user_error_callback;
 
     bool init();
     void send_request();

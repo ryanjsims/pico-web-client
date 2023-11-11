@@ -10,6 +10,9 @@ http_client::http_client(std::string url, std::span<uint8_t> cert)
     , m_port(-1)
     , m_cert(cert)
     , m_tcp(nullptr)
+    , m_user_response_callback([](){})
+    , m_user_closed_callback([](){})
+    , m_user_error_callback([](err_t){})
 {
     trace1("http_client ctor entered\n");
     init();
@@ -240,12 +243,16 @@ void http_client::tcp_recv_callback() {
 
 void http_client::tcp_closed_callback(err_t reason) {
     debug("http_client closed callback called with reason '%s'\n", tcp_perror(reason).c_str());
+    if(reason == ERR_CLSD) {
+        m_user_closed_callback();
+    }
 }
 
 void http_client::tcp_error_callback(err_t err) {
     trace1("http_client::tcp_error_callback entered\n");
     error("Got error: '%s'\n", tcp_perror(err).c_str());
     m_has_error = true;
+    m_user_error_callback(err);
     trace1("http_client::tcp_error_callback exited\n");
 }
 
