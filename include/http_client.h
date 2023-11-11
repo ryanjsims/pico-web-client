@@ -62,6 +62,10 @@ public:
         m_user_error_callback = callback;
     }
 
+    void set_timeout(int timeout_ms) {
+        m_timeout_ms = timeout_ms;
+    }
+
     tcp_base *release_tcp_client();
 
     LUrlParser::ParseURL get_parsed_url() const {
@@ -79,6 +83,8 @@ private:
     LUrlParser::ParseURL m_url_parser;
     std::function<void()> m_user_response_callback, m_user_closed_callback;
     std::function<void(err_t)> m_user_error_callback;
+    uint32_t m_timeout_ms;
+    alarm_id_t m_timeout_alarm;
 
     bool init();
     void send_request();
@@ -88,4 +94,6 @@ private:
     void tcp_recv_callback();
     void tcp_closed_callback();
     void tcp_error_callback(err_t);
+
+    static int64_t timeout_callback(alarm_id_t, void*);
 };

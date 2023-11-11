@@ -13,6 +13,8 @@ http_client::http_client(std::string url, std::span<uint8_t> cert)
     , m_user_response_callback([](){})
     , m_user_closed_callback([](){})
     , m_user_error_callback([](err_t){})
+    , m_timeout_alarm(0)
+    , m_timeout_ms(0)
 {
     trace1("http_client ctor entered\n");
     init();
@@ -21,6 +23,10 @@ http_client::http_client(std::string url, std::span<uint8_t> cert)
 
 http_client::~http_client() {
     trace1("http_client dtor entered\n");
+    if(m_timeout_alarm != 0) {
+        cancel_alarm(m_timeout_alarm);
+        m_timeout_alarm = 0;
+    }
     if(m_tcp) {
         delete m_tcp;
     }
@@ -200,12 +206,23 @@ void http_client::send_request() {
     trace1("http_client::send_request exited\n");
 }
 
+int64_t http_client::timeout_callback(alarm_id_t alarm, void* user_data) {
+    http_client* client = (http_client*)user_data;
+    client->m_tcp->close(ERR_TIMEOUT);
+    // Do not reschedule the alarm
+    return 0;
+}
+
 void http_client::tcp_connected_callback() {
     trace1("http_client::tcp_connected_callback entered\n");
     std::string serialized = m_current_request.serialize();
     debug("http_client sending:\n%*s\n", serialized.size(), serialized.data());
     m_tcp->write({(uint8_t*)serialized.data(), serialized.size()});
     m_request_sent = true;
+    if(m_timeout_ms != 0) {
+        m_timeout_alarm = add_alarm_in_ms(m_timeout_ms, timeout_callback, this, true);
+        debug1("Adding timeout alarm\n");
+    }
     trace1("http_client::tcp_connected_callback exited\n");
 }
 
@@ -213,6 +230,11 @@ void http_client::tcp_connected_callback() {
 
 void http_client::tcp_recv_callback() {
     trace1("http_client::tcp_recv_callback entered\n");
+    if(m_timeout_alarm != 0) {
+        debug1("Cancelling timeout alarm\n");
+        cancel_alarm(m_timeout_alarm);
+        m_timeout_alarm = 0;
+    }
     uint8_t data[m_tcp->available()];
     std::span<uint8_t> span = {(uint8_t*)data, (size_t)m_tcp->available()};
     m_tcp->read(span);
