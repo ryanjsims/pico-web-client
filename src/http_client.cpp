@@ -35,7 +35,7 @@ http_client::~http_client() {
 }
 
 void http_client::url(std::string new_url) {
-    trace("http_client::url entered with new_url of '%*s'\n", new_url.size(), new_url.data());
+    trace("http_client::url entered with new_url of '%.*s'\n", new_url.size(), new_url.data());
     m_url = new_url;
     if(m_tcp) {
         m_tcp->close(ERR_CLSD);
@@ -45,10 +45,10 @@ void http_client::url(std::string new_url) {
 }
 
 bool http_client::parse_url() {
-    debug("http_client::parse_url '%*s'\n", m_url.size(), m_url.data());
+    debug("http_client::parse_url '%.*s'\n", m_url.size(), m_url.data());
     m_url_parser = LUrlParser::ParseURL::parseURL(m_url);
     if(!m_url_parser.isValid()) {
-        error("Invalid URL: %*s\n", m_url.size(), m_url.data());
+        error("Invalid URL: %.*s\n", m_url.size(), m_url.data());
         trace1("http_client::parse_url exited\n");
         return false;
     }
@@ -56,7 +56,7 @@ bool http_client::parse_url() {
     m_host = m_url_parser.host_;
     if(m_url_parser.port_.size() > 0)
         m_url_parser.getPort(&m_port);
-    debug("http_client::parse_url got host '%*s'\n", m_host.size(), m_host.data());
+    debug("http_client::parse_url got host '%.*s'\n", m_host.size(), m_host.data());
 
     if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss")) {
         if(m_tcp && !m_tcp->secure()) {
@@ -128,7 +128,7 @@ void http_client::header(std::string key, std::string value) {
 }
 
 void http_client::send_request(std::string method, std::string target, std::string body) {
-    trace("http_client::send_request entered with:\n    method '%*s'\n    target '%*s'\n    body '%*s'\n", method.size(), method.data(), target.size(), target.data(), body.size(), body.data());
+    trace("http_client::send_request entered with:\n    method '%.*s'\n    target '%.*s'\n    body '%.*s'\n", method.size(), method.data(), target.size(), target.data(), body.size(), body.data());
     if(m_request_sent) {
         m_current_request.clear();
         m_request_sent = false;
@@ -216,7 +216,7 @@ int64_t http_client::timeout_callback(alarm_id_t alarm, void* user_data) {
 void http_client::tcp_connected_callback() {
     trace1("http_client::tcp_connected_callback entered\n");
     std::string serialized = m_current_request.serialize();
-    debug("http_client sending:\n%*s\n", serialized.size(), serialized.data());
+    debug("http_client sending:\n%.*s\n", serialized.size(), serialized.data());
     m_tcp->write({(uint8_t*)serialized.data(), serialized.size()});
     m_request_sent = true;
     if(m_timeout_ms != 0) {
@@ -240,7 +240,7 @@ void http_client::tcp_recv_callback() {
     m_tcp->read(span);
     #if LOG_LEVEL <= LOG_LEVEL_DEBUG
     if(m_current_response.state != http_response::parse_state::body || m_current_response.type != http_response::content_type::binary) {
-        debug("http_client recv'd:\n%s\n", (char*)data);
+        debug("http_client recv'd:\n%.*s\n", span.size(), (char*)span.data());
     } else {
         debug("http_client recv'd %d bytes\n", span.size());
         for (uint32_t i = 0; i < span.size() && i < MAX_RECV_BYTE_OUTPUT;) {
