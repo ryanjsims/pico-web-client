@@ -32,7 +32,7 @@ tcp_client::tcp_client()
 
 tcp_client::~tcp_client() {
     trace1("tcp_client dtor entered\n");
-    close(ERR_OK);
+    close(ERR_CLSD);
     trace1("tcp_client dtor exited\n");
 }
 

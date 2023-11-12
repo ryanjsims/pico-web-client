@@ -38,7 +38,7 @@ void http_client::url(std::string new_url) {
     trace("http_client::url entered with new_url of '%*s'\n", new_url.size(), new_url.data());
     m_url = new_url;
     if(m_tcp) {
-        m_tcp->close(ERR_OK);
+        m_tcp->close(ERR_CLSD);
     }
     parse_url();
     trace1("http_client::url exited\n");
