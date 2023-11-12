@@ -1,5 +1,9 @@
 #include "sio_client.h"
 
+#ifndef SIO_HTTP_TIMEOUT
+#define SIO_HTTP_TIMEOUT 30000
+#endif
+
 volatile int alarms_fired = 0;
 
 int64_t alarm_callback(alarm_id_t id, void* user_data) {
@@ -25,6 +29,7 @@ sio_client::sio_client(std::string url, std::map<std::string, std::string> query
     }
     m_http->on_response(std::bind(&sio_client::http_response_callback, this));
     m_http->on_error(std::bind(&sio_client::http_error_callback, this, std::placeholders::_1));
+    m_http->set_timeout(SIO_HTTP_TIMEOUT);
 }
 
 sio_client::~sio_client() {
@@ -118,6 +123,7 @@ void sio_client::reconnect() {
     m_http = new http_client(m_raw_url);
     m_http->on_response(std::bind(&sio_client::http_response_callback, this));
     m_http->on_error(std::bind(&sio_client::http_error_callback, this, std::placeholders::_1));
+    m_http->set_timeout(SIO_HTTP_TIMEOUT);
     std::function<void()> old_open_callback = m_user_open_callback;
     on_open([&, old_open_callback](){
         for(auto iter = m_namespace_connections.begin(); iter != m_namespace_connections.end(); iter++) {
