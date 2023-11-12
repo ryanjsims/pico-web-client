@@ -49,18 +49,20 @@ namespace ws {
 
         void on_receive(std::function<void()> callback);
         void on_poll(uint8_t interval_seconds, std::function<void()> callback);
-        void on_closed(std::function<void(err_t)> callback);
+        void on_closed(std::function<void()> callback);
+        void on_error(std::function<void(err_t)> callback);
 
     private:
         tcp_base *tcp;
-        std::function<void()> user_receive_callback, user_poll_callback;
-        std::function<void(err_t)> user_close_callback;
+        std::function<void()> user_receive_callback, user_poll_callback, user_close_callback;
+        std::function<void(err_t)> user_error_callback;
         uint32_t packet_size;
 
         void mask(std::span<uint8_t> data, uint32_t masking_key);
         void tcp_recv_callback();
         void tcp_poll_callback();
-        void tcp_close_callback(err_t reason);
+        void tcp_close_callback();
+        void tcp_error_callback(err_t reason);
         bool write_frame(std::span<uint8_t> data, opcodes opcode);
     };
 }

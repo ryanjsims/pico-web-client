@@ -2,9 +2,16 @@
 
 #include "lwip/ip_addr.h"
 
-ws::websocket::websocket(tcp_base *socket): tcp(socket), user_receive_callback([](){}), user_close_callback([](err_t){}) {
+ws::websocket::websocket(tcp_base *socket)
+    : tcp(socket)
+    , user_receive_callback([](){})
+    , user_poll_callback([](){})
+    , user_close_callback([](){})
+    , user_error_callback([](err_t){})
+{
     tcp->on_receive(std::bind(&websocket::tcp_recv_callback, this));
-    tcp->on_closed(std::bind(&websocket::tcp_close_callback, this, std::placeholders::_1));
+    tcp->on_closed(std::bind(&websocket::tcp_close_callback, this));
+    tcp->on_error(std::bind(&websocket::tcp_error_callback, this, std::placeholders::_1));
 }
 
 ws::websocket::~websocket() {
@@ -44,8 +51,12 @@ void ws::websocket::on_poll(uint8_t interval_seconds, std::function<void()> call
     user_poll_callback = callback;
 }
 
-void ws::websocket::on_closed(std::function<void(err_t)> callback) {
+void ws::websocket::on_closed(std::function<void()> callback) {
     user_close_callback = callback;
+}
+
+void ws::websocket::on_error(std::function<void(err_t)> callback) {
+    user_error_callback = callback;
 }
 
 void ws::websocket::mask(std::span<uint8_t> data, uint32_t masking_key) {
@@ -102,8 +113,12 @@ void ws::websocket::tcp_poll_callback() {
     user_poll_callback();
 }
 
-void ws::websocket::tcp_close_callback(err_t reason) {
-    user_close_callback(reason);
+void ws::websocket::tcp_close_callback() {
+    user_close_callback();
+}
+
+void ws::websocket::tcp_error_callback(err_t reason) {
+    user_error_callback(reason);
 }
 
 #define htonll(x) ((((x) & (u64_t)0x00000000000000ffULL) << 56) | \

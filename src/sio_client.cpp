@@ -182,7 +182,8 @@ void sio_client::http_response_callback() {
         });
         trace1("sio_client: set engine open\n");
         m_engine->on_receive(std::bind(&sio_client::engine_recv_callback, this));
-        m_engine->on_closed(std::bind(&sio_client::engine_closed_callback, this, std::placeholders::_1));
+        m_engine->on_closed(std::bind(&sio_client::engine_closed_callback, this));
+        m_engine->on_error(std::bind(&sio_client::engine_error_callback, this, std::placeholders::_1));
         trace1("sio_client: set engine recv\n");
         for(auto iter = m_namespace_connections.begin(); iter != m_namespace_connections.end(); iter++) {
             iter->second->update_engine(m_engine);
@@ -259,15 +260,24 @@ void sio_client::engine_recv_callback() {
     free(data);
 }
 
-void sio_client::engine_closed_callback(err_t reason) {
+void sio_client::engine_closed_callback() {
+    trace1("sio_client::engine_closed_callback\n");
+    nlohmann::json disconnect_reason = {"transport close"};
+    disconnect_engine(disconnect_reason);
+}
+
+void sio_client::engine_error_callback(err_t reason) {
+    trace("sio_client::engine_error_callback: %s\n", tcp_perror(reason).c_str());
     nlohmann::json disconnect_reason = nlohmann::json::array();
-    if(reason == ERR_CLSD) {
-        disconnect_reason.push_back("transport close");
-    } else if(reason == ERR_TIMEOUT) {
+    if(reason == ERR_TIMEOUT) {
         disconnect_reason.push_back("ping timeout");
     } else {
         disconnect_reason.push_back("transport error");
     }
+    disconnect_engine(disconnect_reason);
+}
+
+void sio_client::disconnect_engine(nlohmann::json disconnect_reason) {
     for(auto iter = m_namespace_connections.begin(); iter != m_namespace_connections.end(); iter++) {
         iter->second->m_sid = "";
         iter->second->disconnect_callback(disconnect_reason);

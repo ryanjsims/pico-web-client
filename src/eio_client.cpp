@@ -67,7 +67,8 @@ eio_client::eio_client(ws::websocket *socket): socket_(socket), ping_millisecond
     trace1("eio_client (ctor)\n");
     socket_->on_receive(std::bind(&eio_client::ws_recv_callback, this));
     socket_->on_poll(1, std::bind(&eio_client::ws_poll_callback, this));
-    socket_->on_closed(std::bind(&eio_client::ws_close_callback, this, std::placeholders::_1));
+    socket_->on_closed(std::bind(&eio_client::ws_close_callback, this));
+    socket_->on_error(std::bind(&eio_client::ws_error_callback, this, std::placeholders::_1));
 }
 
 eio_client::eio_client(tcp_base *socket): ping_milliseconds(0), open_(false), refresh_watchdog_(false) {
@@ -75,7 +76,8 @@ eio_client::eio_client(tcp_base *socket): ping_milliseconds(0), open_(false), re
     socket_ = new ws::websocket(socket);
     socket_->on_receive(std::bind(&eio_client::ws_recv_callback, this));
     socket_->on_poll(1, std::bind(&eio_client::ws_poll_callback, this));
-    socket_->on_closed(std::bind(&eio_client::ws_close_callback, this, std::placeholders::_1));
+    socket_->on_closed(std::bind(&eio_client::ws_close_callback, this));
+    socket_->on_error(std::bind(&eio_client::ws_error_callback, this, std::placeholders::_1));
 }
 
 size_t eio_client::read(std::span<uint8_t> data) {
@@ -102,8 +104,12 @@ void eio_client::on_receive(std::function<void()> callback) {
     user_receive_callback = callback;
 }
 
-void eio_client::on_closed(std::function<void(err_t)> callback) {
+void eio_client::on_closed(std::function<void()> callback) {
     user_close_callback = callback;
+}
+
+void eio_client::on_error(std::function<void(err_t)> callback) {
+    user_error_callback = callback;
 }
 
 void eio_client::on_open(std::function<void()> callback) {
@@ -183,6 +189,10 @@ void eio_client::ws_poll_callback() {
     }
 }
 
-void eio_client::ws_close_callback(err_t reason) {
-    user_close_callback(reason);
+void eio_client::ws_close_callback() {
+    user_close_callback();
+}
+
+void eio_client::ws_error_callback(err_t reason) {
+    user_error_callback(reason);
 }

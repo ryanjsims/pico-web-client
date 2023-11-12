@@ -69,5 +69,7 @@ private:
     void http_response_callback();
     void http_error_callback(err_t reason);
     void engine_recv_callback();
-    void engine_closed_callback(err_t reason);
+    void engine_closed_callback();
+    void engine_error_callback(err_t reason);
+    void disconnect_engine(nlohmann::json reason_array);
 };
