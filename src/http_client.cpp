@@ -240,7 +240,12 @@ void http_client::tcp_recv_callback() {
     m_tcp->read(span);
     #if LOG_LEVEL <= LOG_LEVEL_DEBUG
     if(m_current_response.state != http_response::parse_state::body || m_current_response.type != http_response::content_type::binary) {
-        debug("http_client recv'd:\n%.*s\n", span.size(), (char*)span.data());
+        std::string_view string = {(char*)span.data(), span.size()};
+        size_t max_size = string.find("\r\n\r\n");
+        if(max_size == std::string_view::npos) {
+            max_size = span.size();
+        }
+        debug("http_client recv'd:\n%.*s\n", max_size, (char*)span.data());
     } else {
         debug("http_client recv'd %d bytes\n", span.size());
         for (uint32_t i = 0; i < span.size() && i < MAX_RECV_BYTE_OUTPUT;) {
