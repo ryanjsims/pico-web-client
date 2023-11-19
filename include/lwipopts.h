@@ -22,7 +22,7 @@
 #define LWIP_ETHERNET                   1
 #define LWIP_ICMP                       1
 #define LWIP_RAW                        1
-#define TCP_WND                         16384
+#define TCP_WND                         18432
 #define TCP_MSS                         1460
 #define TCP_SND_BUF                     (8 * TCP_MSS)
 #define TCP_SND_QUEUELEN                ((4 * (TCP_SND_BUF) + (TCP_MSS - 1)) / (TCP_MSS))
