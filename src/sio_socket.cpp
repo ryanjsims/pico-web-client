@@ -33,7 +33,7 @@ bool sio_socket::emit(std::string event, nlohmann::json array) {
 }
 
 bool sio_socket::connected() const {
-    return m_sid != "";
+    return m_sid != "" && m_engine != nullptr;
 }
 
 void sio_socket::update_engine(eio_client *engine_ref) {
