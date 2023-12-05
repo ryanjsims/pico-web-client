@@ -19,7 +19,7 @@ public:
     eio_client(tcp_base *socket);
     ~eio_client() { 
         trace1("~eio_client\n");
-        delete socket_;
+        delete m_socket;
     }
 
     size_t read(std::span<uint8_t> data);
@@ -36,12 +36,12 @@ public:
     void set_refresh_watchdog();
 
 private:
-    ws::websocket *socket_;
-    std::function<void()> user_receive_callback, user_open_callback, user_close_callback;
-    std::function<void(err_t)> user_error_callback;
-    std::string sid;
-    int ping_interval, ping_timeout, ping_milliseconds;
-    bool open_, refresh_watchdog_;
+    ws::websocket *m_socket;
+    std::function<void()> m_user_receive_callback, m_user_open_callback, m_user_close_callback;
+    std::function<void(err_t)> m_user_error_callback;
+    std::string m_sid;
+    int m_ping_interval, m_ping_timeout, m_ping_milliseconds;
+    bool m_open, m_refresh_watchdog;
 
     void ws_recv_callback();
     void ws_poll_callback();

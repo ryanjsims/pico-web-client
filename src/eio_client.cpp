@@ -63,25 +63,25 @@ private:
     size_t m_capacity, m_size;
 };
 
-eio_client::eio_client(ws::websocket *socket): socket_(socket), ping_milliseconds(0), open_(false), refresh_watchdog_(false) {
+eio_client::eio_client(ws::websocket *socket): m_socket(socket), m_ping_milliseconds(0), m_open(false), m_refresh_watchdog(false) {
     trace1("eio_client (ctor)\n");
-    socket_->on_receive(std::bind(&eio_client::ws_recv_callback, this));
-    socket_->on_poll(1, std::bind(&eio_client::ws_poll_callback, this));
-    socket_->on_closed(std::bind(&eio_client::ws_close_callback, this));
-    socket_->on_error(std::bind(&eio_client::ws_error_callback, this, std::placeholders::_1));
+    m_socket->on_receive(std::bind(&eio_client::ws_recv_callback, this));
+    m_socket->on_poll(1, std::bind(&eio_client::ws_poll_callback, this));
+    m_socket->on_closed(std::bind(&eio_client::ws_close_callback, this));
+    m_socket->on_error(std::bind(&eio_client::ws_error_callback, this, std::placeholders::_1));
 }
 
-eio_client::eio_client(tcp_base *socket): ping_milliseconds(0), open_(false), refresh_watchdog_(false) {
+eio_client::eio_client(tcp_base *socket): m_ping_milliseconds(0), m_open(false), m_refresh_watchdog(false) {
     trace1("eio_client (ctor)\n");
-    socket_ = new ws::websocket(socket);
-    socket_->on_receive(std::bind(&eio_client::ws_recv_callback, this));
-    socket_->on_poll(1, std::bind(&eio_client::ws_poll_callback, this));
-    socket_->on_closed(std::bind(&eio_client::ws_close_callback, this));
-    socket_->on_error(std::bind(&eio_client::ws_error_callback, this, std::placeholders::_1));
+    m_socket = new ws::websocket(socket);
+    m_socket->on_receive(std::bind(&eio_client::ws_recv_callback, this));
+    m_socket->on_poll(1, std::bind(&eio_client::ws_poll_callback, this));
+    m_socket->on_closed(std::bind(&eio_client::ws_close_callback, this));
+    m_socket->on_error(std::bind(&eio_client::ws_error_callback, this, std::placeholders::_1));
 }
 
 size_t eio_client::read(std::span<uint8_t> data) {
-    return socket_->read(data);
+    return m_socket->read(data);
 }
 
 bool eio_client::send_message(std::span<uint8_t> data) {
@@ -93,42 +93,42 @@ bool eio_client::send_message(std::span<uint8_t> data) {
     }
     data[-1] = (uint8_t)packet_type::message;
     debug("EIO send message: '%*s'\n", data.size() + 1, data.data() - 1);
-    return socket_->write_text({data.data() - 1, data.size() + 1});
+    return m_socket->write_text({data.data() - 1, data.size() + 1});
 }
 
 uint32_t eio_client::packet_size() const {
-    return socket_->received_packet_size() - 1;
+    return m_socket->received_packet_size() - 1;
 }
 
 void eio_client::on_receive(std::function<void()> callback) {
-    user_receive_callback = callback;
+    m_user_receive_callback = callback;
 }
 
 void eio_client::on_closed(std::function<void()> callback) {
-    user_close_callback = callback;
+    m_user_close_callback = callback;
 }
 
 void eio_client::on_error(std::function<void(err_t)> callback) {
-    user_error_callback = callback;
+    m_user_error_callback = callback;
 }
 
 void eio_client::on_open(std::function<void()> callback) {
-    user_open_callback = callback;
+    m_user_open_callback = callback;
 }
 
 void eio_client::read_initial_packet() {
     debug1("Engine reading initial packet...\n");
-    socket_->tcp_recv_callback();
+    m_socket->tcp_recv_callback();
     set_refresh_watchdog();
 }
 
 void eio_client::set_refresh_watchdog() {
-    refresh_watchdog_ = true;
+    m_refresh_watchdog = true;
 }
 
 void eio_client::ws_recv_callback() {
     packet_type type;
-    socket_->read({(uint8_t*)&type, 1});
+    m_socket->read({(uint8_t*)&type, 1});
     switch(type) {
     case packet_type::open:{
         uint8_t* packet = (uint8_t*)malloc(packet_size());
@@ -136,36 +136,36 @@ void eio_client::ws_recv_callback() {
             error1("eio_client::ws_recv_callback: failed to allocate open packet data!\n");
             panic("Out of memory!\n");
         }
-        socket_->read({packet, packet_size()});
+        m_socket->read({packet, packet_size()});
         nlohmann::json body = nlohmann::json::parse(std::string_view((char*)packet, packet_size()));
-        sid = body["sid"];
-        ping_interval = body["pingInterval"];
-        ping_timeout = body["pingTimeout"];
-        info("EIO Open:\n    sid=%s\n    pingInterval=%d\n    pingTimeout=%d\n", sid.c_str(), ping_interval, ping_timeout);
-        open_ = true;
-        user_open_callback();
+        m_sid = body["sid"];
+        m_ping_interval = body["pingInterval"];
+        m_ping_timeout = body["pingTimeout"];
+        info("EIO Open:\n    sid=%s\n    pingInterval=%d\n    pingTimeout=%d\n", m_sid.c_str(), m_ping_interval, m_ping_timeout);
+        m_open = true;
+        m_user_open_callback();
         free(packet);
         break;
     }
 
     case packet_type::close:
         debug1("EIO Close\n");
-        open_ = false;
-        socket_->close(ERR_CLSD);
+        m_open = false;
+        m_socket->close(ERR_CLSD);
         break;
 
     case packet_type::ping:{
         debug1("EIO Ping\n");
-        ping_milliseconds = 0;
+        m_ping_milliseconds = 0;
         eio_packet response;
         response += (char)packet_type::pong;
-        socket_->write_text(response.span());
+        m_socket->write_text(response.span());
         break;
     }
 
     case packet_type::message:
         debug1("EIO Message\n");
-        user_receive_callback();
+        m_user_receive_callback();
         break;
     
     default:
@@ -176,23 +176,23 @@ void eio_client::ws_recv_callback() {
 
 void eio_client::ws_poll_callback() {
     trace1("eio_client::ws_poll_callback\n");
-    if(refresh_watchdog_) {
+    if(m_refresh_watchdog) {
         watchdog_update();
         trace1("refreshed watchdog\n");
     }
-    if(open_) {
-        ping_milliseconds += 1000;
-        if(ping_milliseconds > ping_interval + ping_timeout) {
-            open_ = false;
-            socket_->close(ERR_TIMEOUT);
+    if(m_open) {
+        m_ping_milliseconds += 1000;
+        if(m_ping_milliseconds > m_ping_interval + m_ping_timeout) {
+            m_open = false;
+            m_socket->close(ERR_TIMEOUT);
         }
     }
 }
 
 void eio_client::ws_close_callback() {
-    user_close_callback();
+    m_user_close_callback();
 }
 
 void eio_client::ws_error_callback(err_t reason) {
-    user_error_callback(reason);
+    m_user_error_callback(reason);
 }
