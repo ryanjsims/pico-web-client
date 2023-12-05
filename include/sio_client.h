@@ -10,7 +10,6 @@
 #include <hardware/watchdog.h>
 
 #include <map>
-#include <memory>
 #include <functional>
 
 extern volatile int alarms_fired;
@@ -44,7 +43,7 @@ public:
 
     void connect(std::string ns = "/");
     void disconnect(std::string ns = "/");
-    std::unique_ptr<sio_socket> &socket(std::string ns = "/");
+    sio_socket* socket(std::string ns = "/");
     void reconnect();
 
     bool ready() const;
@@ -58,7 +57,7 @@ public:
 private:
     eio_client *m_engine;
     http_client *m_http;
-    std::map<std::string, std::unique_ptr<sio_socket>> m_namespace_connections;
+    std::map<std::string, sio_socket*> m_namespace_connections;
     std::function<void()> m_user_open_callback;
     std::string m_raw_url, m_query_string;
     bool m_open = false;

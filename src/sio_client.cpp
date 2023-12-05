@@ -34,7 +34,7 @@ sio_client::sio_client(std::string url, std::map<std::string, std::string> query
 
 sio_client::~sio_client() {
     for(auto iter = m_namespace_connections.begin(); iter != m_namespace_connections.end(); iter++) {
-        iter->second.reset();
+        delete iter->second;
     }
     if(m_engine) {
         delete m_engine;
@@ -81,7 +81,7 @@ void sio_client::disconnect(std::string ns) {
     if(m_namespace_connections.find(ns) != m_namespace_connections.end()) {
         m_namespace_connections[ns]->m_sid = "";
         m_namespace_connections[ns]->disconnect_callback({"io client disconnect"});
-        m_namespace_connections[ns].reset();
+        delete m_namespace_connections[ns];
         m_namespace_connections.erase(ns);
         sio_packet packet;
         packet += "1" + (ns != "/" ? ns + "," : "");
@@ -89,10 +89,10 @@ void sio_client::disconnect(std::string ns) {
     }
 }
 
-std::unique_ptr<sio_socket> &sio_client::socket(std::string ns) {
+sio_socket* sio_client::socket(std::string ns) {
     if(m_namespace_connections.find(ns) == m_namespace_connections.end()) {
         debug("socket: Creating new socket for namespace '%s'\n", ns.c_str());
-        m_namespace_connections[ns] = std::unique_ptr<sio_socket>(new sio_socket(m_engine, ns));
+        m_namespace_connections[ns] = new sio_socket(m_engine, ns);
     }
     return m_namespace_connections[ns];
 }
@@ -237,7 +237,7 @@ void sio_client::engine_recv_callback() {
         }
         if(m_namespace_connections.find(ns) == m_namespace_connections.end()) {
             debug("recv: Creating new socket for namespace '%s'\n", ns.c_str());
-            m_namespace_connections[ns] = std::unique_ptr<sio_socket>(new sio_socket(m_engine, ns));
+            m_namespace_connections[ns] = new sio_socket(m_engine, ns);
         } else {
             debug("Found existing socket for namespace '%s'\n", ns.c_str());
         }
@@ -250,6 +250,8 @@ void sio_client::engine_recv_callback() {
         if(m_namespace_connections.find(ns) != m_namespace_connections.end()){
             m_namespace_connections[ns]->m_sid = "";
             m_namespace_connections[ns]->disconnect_callback({"io server disconnect"});
+            delete m_namespace_connections[ns];
+            m_namespace_connections.erase(ns);
         }
         break;
 
