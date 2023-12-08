@@ -99,8 +99,10 @@ void ws::websocket::tcp_recv_callback() {
         break;
     case opcodes::close:{
         debug1("ws::websocket::tcp_recv_callback: Got close frame\n");
-        std::string data(' ', 14);
-        write_frame({(uint8_t*)data.data() + 14, data.size() - 14}, opcodes::close);
+        char data[15];
+        memset(data, ' ', 14);
+        data[14] = 0;
+        write_frame({(uint8_t*)data + 14, 0}, opcodes::close);
         tcp->close(ERR_CLSD);
         break;
     }
