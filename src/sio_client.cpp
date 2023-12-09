@@ -214,7 +214,7 @@ void sio_client::engine_recv_callback() {
     std::span<uint8_t> span = {data, m_engine->packet_size()};
     std::string_view strview((char*)span.data(), span.size());
     m_engine->read(span);
-    debug("read data: '%*s'\n", span.size(), (const char*)span.data());
+    debug("read data: '%.*s'\n", span.size(), (const char*)span.data());
     std::string ns = "/";
     nlohmann::json body;
     trace1("created json\n");
@@ -250,8 +250,6 @@ void sio_client::engine_recv_callback() {
         if(m_namespace_connections.find(ns) != m_namespace_connections.end()){
             m_namespace_connections[ns]->m_sid = "";
             m_namespace_connections[ns]->disconnect_callback({"io server disconnect"});
-            delete m_namespace_connections[ns];
-            m_namespace_connections.erase(ns);
         }
         break;
 
