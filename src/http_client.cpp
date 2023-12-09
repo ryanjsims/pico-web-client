@@ -54,9 +54,12 @@ bool http_client::parse_url() {
     }
 
     m_host = m_url_parser.host_;
-    if(m_url_parser.port_.size() > 0)
+    debug("http_client::parse_url got host %.*s", m_host.size(), m_host.data());
+    if(m_url_parser.port_.size() > 0) {
         m_url_parser.getPort(&m_port);
-    debug("http_client::parse_url got host '%.*s'\n", m_host.size(), m_host.data());
+        debug_cont(":%d", m_port);
+    }
+    debug_cont1("\n");
 
     if((m_url_parser.scheme_ == "https" || m_url_parser.scheme_ == "wss")) {
         if(m_tcp && !m_tcp->secure()) {
