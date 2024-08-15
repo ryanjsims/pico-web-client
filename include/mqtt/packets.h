@@ -2,3 +2,8 @@
 #include <mqtt/packet/connack.h>
 #include <mqtt/packet/connect.h>
 #include <mqtt/packet/publish.h>
+#include <mqtt/packet/puback.h>
+#include <mqtt/packet/pubrec.h>
+#include <mqtt/packet/pubrel.h>
+#include <mqtt/packet/pubcomp.h>
+#include <mqtt/packet/subscribe.h>
