@@ -24,7 +24,12 @@ add_library(pico_web_client
     src/http_response.cpp
     src/http_client.cpp
     src/mqtt_client.cpp
-    src/mqtt_packet.cpp
+    src/mqtt/properties.cpp
+    src/mqtt/varint.cpp
+    src/mqtt/packet/base.cpp
+    src/mqtt/packet/connect.cpp
+    src/mqtt/packet/connack.cpp
+    src/mqtt/packet/publish.cpp
     src/websocket.cpp
     src/eio_client.cpp
     src/sio_client.cpp
@@ -49,7 +54,7 @@ target_compile_definitions(pico_web_client PRIVATE
 )
 
 add_executable(pico_download_test
-    src/download_test.cpp
+    test/download_test.cpp
 )
 
 target_include_directories(pico_download_test PUBLIC include)
@@ -72,3 +77,28 @@ target_link_options(pico_download_test PRIVATE "-Wl,--print-memory-usage")
 pico_enable_stdio_usb(pico_download_test 1)
 pico_enable_stdio_uart(pico_download_test 0)
 pico_add_extra_outputs(pico_download_test)
+
+add_executable(pico_mqtt_test
+    test/mqtt_test.cpp
+)
+
+target_include_directories(pico_mqtt_test PUBLIC include)
+target_link_libraries(pico_mqtt_test PRIVATE
+    pico_cyw43_arch_lwip_threadsafe_background
+    pico_lwip_mbedtls
+    pico_mbedtls
+    pico_multicore
+    pico_stdlib
+    pico_web_client
+)
+target_compile_options(pico_mqtt_test PRIVATE "-Wno-psabi")
+target_compile_definitions(pico_mqtt_test PRIVATE 
+    "WIFI_SSID=\"$ENV{WIFI_SSID}\""
+    "WIFI_PASSWORD=\"$ENV{WIFI_PASSWORD}\""
+    "LOG_LEVEL=$ENV{LOG_LEVEL}"
+)
+target_link_options(pico_mqtt_test PRIVATE "-Wl,--print-memory-usage")
+
+pico_enable_stdio_usb(pico_mqtt_test 0)
+pico_enable_stdio_uart(pico_mqtt_test 1)
+pico_add_extra_outputs(pico_mqtt_test)
