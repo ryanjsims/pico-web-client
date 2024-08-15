@@ -7,3 +7,10 @@
 #include <mqtt/packet/pubrel.h>
 #include <mqtt/packet/pubcomp.h>
 #include <mqtt/packet/subscribe.h>
+#include <mqtt/packet/suback.h>
+#include <mqtt/packet/unsubscribe.h>
+#include <mqtt/packet/unsuback.h>
+#include <mqtt/packet/pingreq.h>
+#include <mqtt/packet/pingresp.h>
+#include <mqtt/packet/disconnect.h>
+#include <mqtt/packet/auth.h>
