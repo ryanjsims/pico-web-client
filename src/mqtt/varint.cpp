@@ -3,6 +3,10 @@
 mqtt::varint_t::varint_t(std::span<uint8_t> data) {
     value = 0;
     length = 0;
+    if(data.size() == 0) {
+        length = 1;
+        return;
+    }
     uint8_t shift = 0;
     uint8_t encoded;
     do {

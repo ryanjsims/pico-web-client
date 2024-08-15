@@ -189,6 +189,13 @@ void mqtt::property::serialize(std::span<uint8_t> value) const {
 }
 
 mqtt::properties::properties(std::span<uint8_t> data) {
+    if(data.size() == 0) {
+        m_length = {0};
+        m_count = 0;
+        m_capacity = 0;
+        m_properties = nullptr;
+        return;
+    }
     m_length = varint_t(data);
     data = data.subspan(m_length.length);
     uint32_t i = 0;
