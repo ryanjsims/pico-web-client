@@ -53,7 +53,7 @@ mqtt::varint_t mqtt::pubrel_packet::length() const {
 
 uint16_t mqtt::pubrel_packet::id() const {
     std::span<uint8_t> data = m_packet->contents();
-    return (data[id_offset()] << 8) | data[id_offset()];
+    return (data[id_offset()] << 8) | data[id_offset() + 1];
 }
 
 mqtt::reason_code mqtt::pubrel_packet::reason() const {
