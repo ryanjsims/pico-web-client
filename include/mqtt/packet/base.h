@@ -16,7 +16,7 @@ namespace mqtt {
         PUBLISH     = 0x3 << 4,
         PUBACK      = 0x4 << 4,
         PUBREC      = 0x5 << 4,
-        PUBREL      = 0x6 << 4,
+        PUBREL      = 0x62,
         PUBCOMP     = 0x7 << 4,
         SUBSCRIBE   = 0x8 << 4,
         SUBACK      = 0x9 << 4,
