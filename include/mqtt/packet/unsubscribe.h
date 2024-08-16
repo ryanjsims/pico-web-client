@@ -2,12 +2,11 @@
 #include <mqtt/properties.h>
 #include <mqtt/varint.h>
 #include <mqtt/packet/base.h>
-#include <vector>
 
 namespace mqtt {
     struct unsubscribe_packet {
         unsubscribe_packet(uint16_t pkt_id, std::u8string topic_filter, mqtt::properties properties = mqtt::properties{});
-        unsubscribe_packet(uint16_t pkt_id, std::vector<std::u8string> topic_filters, mqtt::properties properties = mqtt::properties{});
+        unsubscribe_packet(uint16_t pkt_id, std::span<std::u8string> topic_filters, mqtt::properties properties = mqtt::properties{});
         unsubscribe_packet(packet* p);
         ~unsubscribe_packet();
 

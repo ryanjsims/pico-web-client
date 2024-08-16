@@ -19,7 +19,7 @@ mqtt::subscribe_packet::subscribe_packet(uint16_t pkt_id, std::u8string topic_fi
     subscribe += options;
 }
 
-mqtt::subscribe_packet::subscribe_packet(uint16_t pkt_id, std::vector<std::u8string> topic_filters, std::vector<options_t> options, mqtt::properties properties)
+mqtt::subscribe_packet::subscribe_packet(uint16_t pkt_id, std::span<std::u8string> topic_filters, std::span<options_t> options, mqtt::properties properties)
     : m_properties(std::move(properties))
 {
     if(topic_filters.size() == 0 || options.size() == 0) {

@@ -18,7 +18,7 @@ mqtt::unsubscribe_packet::unsubscribe_packet(uint16_t pkt_id, std::u8string topi
     unsubscribe += topic_filter;
 }
 
-mqtt::unsubscribe_packet::unsubscribe_packet(uint16_t pkt_id, std::vector<std::u8string> topic_filters, mqtt::properties properties)
+mqtt::unsubscribe_packet::unsubscribe_packet(uint16_t pkt_id, std::span<std::u8string> topic_filters, mqtt::properties properties)
     : m_properties(std::move(properties))
 {
     if(topic_filters.size() == 0) {
@@ -27,7 +27,7 @@ mqtt::unsubscribe_packet::unsubscribe_packet(uint16_t pkt_id, std::vector<std::u
     }
 
     m_owned = true;
-    m_packet = new packet(mqtt::packet_type::SUBSCRIBE);
+    m_packet = new packet(mqtt::packet_type::UNSUBSCRIBE);
 
     packet& unsubscribe = *m_packet;
 

@@ -2,7 +2,6 @@
 #include <mqtt/properties.h>
 #include <mqtt/varint.h>
 #include <mqtt/packet/base.h>
-#include <vector>
 
 namespace mqtt {
     struct subscribe_packet {
@@ -35,7 +34,7 @@ namespace mqtt {
             }
         };
         subscribe_packet(uint16_t pkt_id, std::u8string topic_filter, options_t options, mqtt::properties properties = mqtt::properties{});
-        subscribe_packet(uint16_t pkt_id, std::vector<std::u8string> topic_filters, std::vector<options_t> options, mqtt::properties properties = mqtt::properties{});
+        subscribe_packet(uint16_t pkt_id, std::span<std::u8string> topic_filters, std::span<options_t> options, mqtt::properties properties = mqtt::properties{});
         subscribe_packet(packet* p);
         ~subscribe_packet();
 
