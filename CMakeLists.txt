@@ -30,6 +30,18 @@ add_library(pico_web_client
     src/mqtt/packet/connect.cpp
     src/mqtt/packet/connack.cpp
     src/mqtt/packet/publish.cpp
+    src/mqtt/packet/puback.cpp
+    src/mqtt/packet/pubrec.cpp
+    src/mqtt/packet/pubrel.cpp
+    src/mqtt/packet/pubcomp.cpp
+    src/mqtt/packet/subscribe.cpp
+    src/mqtt/packet/suback.cpp
+    src/mqtt/packet/unsubscribe.cpp
+    src/mqtt/packet/unsuback.cpp
+    src/mqtt/packet/pingreq.cpp
+    src/mqtt/packet/pingresp.cpp
+    src/mqtt/packet/disconnect.cpp
+    src/mqtt/packet/auth.cpp
     src/websocket.cpp
     src/eio_client.cpp
     src/sio_client.cpp
