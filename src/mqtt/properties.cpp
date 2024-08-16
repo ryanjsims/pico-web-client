@@ -268,11 +268,12 @@ void mqtt::properties::pop(uint32_t index) {
     }
 }
 
-std::optional<const mqtt::property> mqtt::properties::operator[](property_name name) const {
+std::vector<const mqtt::property*> mqtt::properties::operator[](property_name name) const {
+    std::vector<const mqtt::property*> to_return;
     for(int i = 0; i < m_count; i++) {
         if(m_properties[i].m_name == name) {
-            return m_properties[i];
+            to_return.push_back(m_properties + i);
         }
     }
-    return {};
+    return to_return;
 }

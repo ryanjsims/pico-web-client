@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 #include <span>
-#include <optional>
+#include <vector>
 
 #include <mqtt/varint.h>
 
@@ -80,7 +80,7 @@ namespace mqtt {
 
         void serialize(std::span<uint8_t>) const;
 
-        std::optional<const property> operator[](property_name name) const;
+        std::vector<const property*> operator[](property_name name) const;
 
     private:
         property *m_properties = nullptr;
