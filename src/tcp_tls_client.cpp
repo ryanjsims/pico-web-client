@@ -154,6 +154,10 @@ bool tcp_tls_client::connect(std::string hostname, uint16_t port) {
 }
 
 bool tcp_tls_client::connect() {
+    if(tcp_controlblock == nullptr) {
+        init();
+    }
+
     cyw43_arch_lwip_begin();
     err_t err = altcp_connect(tcp_controlblock, &remote_addr, port_, connected_callback);
     cyw43_arch_lwip_end();

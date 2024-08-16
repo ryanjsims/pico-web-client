@@ -114,6 +114,10 @@ bool tcp_client::connect(std::string addr, uint16_t port) {
 }
 
 bool tcp_client::connect() {
+    if(tcp_controlblock == nullptr) {
+        init();
+    }
+
     cyw43_arch_lwip_begin();
     err_t err = tcp_connect(tcp_controlblock, &remote_addr, port_, connected_callback);
     cyw43_arch_lwip_end();
