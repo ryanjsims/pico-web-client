@@ -78,6 +78,8 @@ namespace mqtt {
     };
 
     struct packet {
+        packet_type m_type;
+
         packet() : m_type(packet_type::UNDEFINED), m_length(0) {}
         packet(packet_type t) : m_type(t), m_length(0) {}
         packet(std::span<uint8_t>);
@@ -98,7 +100,16 @@ namespace mqtt {
         uint8_t qos();
         varint_t size() { return {m_count}; }
 
-        packet_type m_type;
+        packet_type masked() const {
+            mqtt::packet_type to_ret = (mqtt::packet_type)((uint8_t)m_type & (uint8_t)mqtt::packet_type::MASK);
+            // Only PUBLISH packets need to be masked since they're the only packet type with
+            // variable flags stored in the packet type byte
+            if(to_ret == mqtt::packet_type::PUBLISH) {
+                return mqtt::packet_type::PUBLISH;
+            }
+            return m_type;
+        }
+
     private:
         varint_t m_length;
         uint8_t *data = nullptr;
