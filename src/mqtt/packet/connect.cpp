@@ -1,6 +1,6 @@
 #include <mqtt/packet/connect.h>
 
-mqtt::connect_packet::connect_packet(std::u8string username, std::span<uint8_t> password, mqtt::properties properties)
+mqtt::connect_packet::connect_packet(std::u8string client_id, std::u8string username, std::span<uint8_t> password, mqtt::properties properties)
     : m_will_properties(nullptr)
     , m_properties(std::move(properties))
 {
@@ -18,7 +18,7 @@ mqtt::connect_packet::connect_packet(std::u8string username, std::span<uint8_t> 
     // properties
     connect += m_properties;
     // Client id
-    connect += u8"";
+    connect += client_id;
     // Add username and password if present
     if(username.size() > 0) {
         connect += username;

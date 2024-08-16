@@ -37,7 +37,7 @@ namespace mqtt {
             void username(bool to_set) { value = (to_set ? (value | (1 << 7)) : (value & ~(1 << 7))); }
         };
 
-        connect_packet(std::u8string username = u8"", std::span<uint8_t> password = {}, mqtt::properties properties = mqtt::properties{});
+        connect_packet(std::u8string client_id = u8"", std::u8string username = u8"", std::span<uint8_t> password = {}, mqtt::properties properties = mqtt::properties{});
         connect_packet(packet* p);
         ~connect_packet();
 
