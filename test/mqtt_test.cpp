@@ -145,8 +145,7 @@ int main() {
         client.publish(u8"pico/test/send", flags, {(u8_t*)data.data(), data.size()});
     });
 
-    mqtt::subscribe_packet::options_t options;
-    options.qos(2);
+    mqtt::subscribe_packet::options_t options(2, false, false, 0);
     client.subscribe(u8"pico/test", options, [](std::u8string_view topic, const mqtt::properties& props, std::span<uint8_t> payload){
         info("Received message for topic: %.*s\n", topic.size(), topic.data());
         dump_bytes(payload.data(), payload.size());

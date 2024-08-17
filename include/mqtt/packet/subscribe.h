@@ -8,6 +8,11 @@ namespace mqtt {
         struct options_t {
             uint8_t value;
             operator uint8_t() const { return value; }
+            options_t(uint8_t qos, bool nl, bool rap, uint8_t handling) {
+                qos = qos > 2 ? 2 : qos;
+                handling = handling > 2 ? 2 : handling;
+                value = (handling << 4) | (rap << 3) | (nl << 2) | qos;
+            }
 
             uint8_t qos() const { return ((value >> 0) & 3); }
             void qos(uint8_t to_set) {
