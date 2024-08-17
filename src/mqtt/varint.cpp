@@ -1,9 +1,12 @@
 #include <mqtt/varint.h>
 
+#include <logger.h>
+
 mqtt::varint_t::varint_t(std::span<uint8_t> data) {
     value = 0;
     length = 0;
     if(data.size() == 0) {
+        warn1("mqtt::varint_t constructor: Got span with size 0\n");
         length = 1;
         return;
     }
