@@ -257,6 +257,8 @@ void mqtt::client::handle_packet_queues() {
                 delete to_send;
                 break;
             }
+            m_send_quota--;
+            info("m_send_quota is now: %d\n", m_send_quota);
         case mqtt::packet_type::PUBREC:
         case mqtt::packet_type::PUBREL:
         case mqtt::packet_type::SUBSCRIBE:
@@ -517,9 +519,9 @@ void mqtt::client::handle_puback(mqtt::packet* packet) {
     puback_packet ack(packet);
     uint16_t packet_id = ack.id();
     mqtt::packet* unacked = get_unacked(mqtt::packet_type::PUBLISH, packet_id);
-    if(unacked) {
-        delete unacked;
-    }
+    m_send_quota++;
+    info("m_send_quota is now: %d\n", m_send_quota);
+    delete unacked;
     delete packet;
 }
 
@@ -534,9 +536,14 @@ void mqtt::client::handle_pubrec(mqtt::packet* packet) {
         delete unacked;
     }
 
-    pubrel_packet rel(packet_id, reason);
-    mqtt::packet* to_send = rel.release();
-    m_send_queue.push(to_send);
+    if(rec.reason() >= reason_code::ERROR_UNSPECIFIED) {
+        m_send_quota++;
+        info("m_send_quota is now: %d\n", m_send_quota);
+    } else {
+        pubrel_packet rel(packet_id, reason);
+        mqtt::packet* to_send = rel.release();
+        m_send_queue.push(to_send);
+    }
     delete packet;
 }
 
@@ -561,9 +568,9 @@ void mqtt::client::handle_pubcomp(mqtt::packet* packet) {
     pubcomp_packet comp(packet);
     uint16_t packet_id = comp.id();
     mqtt::packet* unacked = get_unacked(mqtt::packet_type::PUBREL, packet_id);
-    if(unacked) {
-        delete unacked;
-    }
+    m_send_quota++;
+    info("m_send_quota is now: %d\n", m_send_quota);
+    delete unacked;
     delete packet;
 }
 
