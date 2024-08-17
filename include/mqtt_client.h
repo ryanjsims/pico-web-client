@@ -34,13 +34,17 @@ namespace mqtt {
 
         void disconnect(reason_code reason);
 
+        // Blocks until connected if client is connecting
         void subscribe(std::u8string topic_filter, subscribe_packet::options_t options, publish_handler_t handler);
+        // Blocks until connected if client is connecting
         void subscribe(std::span<std::u8string> topic_filters, std::span<subscribe_packet::options_t> options, publish_handler_t handler);
 
         void unsubscribe(std::u8string topic_filter);
         void unsubscribe(std::span<std::u8string> topic_filters);
 
+        // Blocks until connected if client is connecting
         void publish(std::u8string topic, publish_packet::flags_t flags, std::span<uint8_t> data);
+        // Blocks until connected if client is connecting
         void publish(std::u8string topic, publish_packet::flags_t flags, std::u8string content_type, std::span<uint8_t> data);
 
         bool connected();

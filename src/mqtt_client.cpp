@@ -68,6 +68,10 @@ void mqtt::client::subscribe(std::u8string topic_filter, subscribe_packet::optio
 }
 
 void mqtt::client::subscribe(std::span<std::u8string> topic_filters, std::span<subscribe_packet::options_t> options, publish_handler_t handler) {
+    // Block until connected
+    while(m_state == state::connecting) {
+        sleep_ms(100);
+    }
     subscription_t sub = {
         {topic_filters.begin(), topic_filters.end()},
         {},
@@ -115,6 +119,11 @@ void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, s
 }
 
 void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, std::u8string content_type, std::span<uint8_t> data) {
+    // Block until connected
+    while(m_state == state::connecting) {
+        sleep_ms(100);
+    }
+
     mqtt::packet* to_send;
     if(content_type.size() > 0) {
         mqtt::properties properties;
@@ -127,7 +136,7 @@ void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, s
         publish_packet packet(flags, topic, generate_packet_id(), data, properties);
         to_send = packet.release();
     } else {
-        publish_packet packet(flags, topic, generate_packet_id(), data);\
+        publish_packet packet(flags, topic, generate_packet_id(), data);
         to_send = packet.release();
     }
     m_send_queue.push(to_send);
@@ -252,6 +261,9 @@ void mqtt::client::handle_packet_queues() {
             break;
         case mqtt::packet_type::DISCONNECT:
             m_state = state::disconnected;
+        case mqtt::packet_type::CONNECT:
+            // Send connects and disconnects ASAP
+            m_tcp->flush();
         default:
             delete to_send;
         }
@@ -686,6 +698,8 @@ void mqtt::client::handle_auth(mqtt::packet* packet) {
 void mqtt::client::tcp_connected_callback() {
     debug1("mqtt::client::tcp_connected_callback\n");
     add_repeating_timer_ms(50, mqtt::client::queue_timer_callback, this, &queue_timer);
+    // Set poll to every 1 second to speed up sends
+    m_tcp->on_poll(1, [](){});
 }
 
 void mqtt::client::tcp_recv_callback() {

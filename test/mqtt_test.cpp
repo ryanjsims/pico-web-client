@@ -137,10 +137,6 @@ int main() {
     mqtt::client client("mqtts://homeassistant.local", {(uint8_t*)ISRG_ROOT_X1_CERT, sizeof(ISRG_ROOT_X1_CERT)});
     client.connect(u8"pico", u8"test");
 
-    while(!client.connected()) {
-        sleep_ms(100);
-    }
-
     mqtt::subscribe_packet::options_t options;
     options.qos(2);
     client.subscribe(u8"pico/test", options, [](std::u8string_view topic, const mqtt::properties& props, std::span<uint8_t> payload){
