@@ -27,10 +27,16 @@ public:
     virtual bool initialized() const = 0;
     virtual bool secure() const = 0;
 
-    virtual void on_receive(std::function<void()> callback) = 0;
+    // Called when tcp client has connected to the peer
     virtual void on_connected(std::function<void()> callback) = 0;
+    // Called when tcp client has received data from the peer
+    virtual void on_receive(std::function<void()> callback) = 0;
+    // Called when the peer has acknowledged receipt of sent data
     virtual void on_send(std::function<void(u16_t)> callback) = 0;
+    // Called when connection is idle, every interval seconds
     virtual void on_poll(uint8_t interval_seconds, std::function<void()> callback) = 0;
+    // Called when the connection has been closed gracefully
     virtual void on_closed(std::function<void()> callback) = 0;
+    // Called when the connection has been closed with an error code
     virtual void on_error(std::function<void(err_t)> callback) = 0;
 };

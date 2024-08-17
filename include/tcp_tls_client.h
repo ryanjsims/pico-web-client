@@ -27,27 +27,33 @@ public:
         return true;
     }
 
-    void on_receive(std::function<void()> callback) override {
-        user_receive_callback = callback;
-    }
-
+    // Called when tcp client has connected to the peer
     void on_connected(std::function<void()> callback) override {
         user_connected_callback = callback;
     }
 
+    // Called when tcp client has received data from the peer
+    void on_receive(std::function<void()> callback) override {
+        user_receive_callback = callback;
+    }
+
+    // Called when the peer has acknowledged receipt of sent data
     void on_send(std::function<void(u16_t)> callback) override {
         user_send_callback = callback;
     }
 
+    // Called when connection is idle, every interval seconds
     void on_poll(uint8_t interval_seconds, std::function<void()> callback) {
         altcp_poll(tcp_controlblock, poll_callback, interval_seconds * 2);
         user_poll_callback = callback;
     }
 
+    // Called when the connection has been closed gracefully
     void on_closed(std::function<void()> callback) override {
         user_closed_callback = callback;
     }
 
+    // Called when the connection has been closed with an error code
     void on_error(std::function<void(err_t)> callback) override {
         user_error_callback = callback;
     }
