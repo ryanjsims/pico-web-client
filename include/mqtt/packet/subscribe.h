@@ -37,6 +37,10 @@ namespace mqtt {
                 }
                 value = (value & ~(3 << 4)) | ((to_set & 3) << 4);
             }
+
+            static options_t parse(uint8_t to_parse) {
+                return options_t(to_parse & 0x03, to_parse & (1 << 2), to_parse & (1 << 3), to_parse >> 4);
+            }
         };
         subscribe_packet(uint16_t pkt_id, std::u8string topic_filter, options_t options, mqtt::properties properties = mqtt::properties{});
         subscribe_packet(uint16_t pkt_id, std::span<std::u8string> topic_filters, std::span<options_t> options, mqtt::properties properties = mqtt::properties{});

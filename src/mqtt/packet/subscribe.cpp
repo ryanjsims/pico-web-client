@@ -121,7 +121,7 @@ std::optional<mqtt::subscribe_packet::options_t> mqtt::subscribe_packet::options
         offset += length + 3;
     }
     if(index == 0 && (offset + length + 2) < data.size()) {
-        return mqtt::subscribe_packet::options_t{data[offset + length + 2]};
+        return mqtt::subscribe_packet::options_t::parse(data[offset + length + 2]);
     }
     return {};
 }
