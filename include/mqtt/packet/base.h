@@ -29,6 +29,8 @@ namespace mqtt {
         MASK        = 0xF0,
     };
 
+    std::string packet_type_string(packet_type type);
+
     enum class reason_code : uint8_t {
         SUCCESS                  = 0x00,
         NORMAL_DISCONNECT        = 0x00,
@@ -80,8 +82,8 @@ namespace mqtt {
     struct packet {
         packet_type m_type;
 
-        packet() : m_type(packet_type::UNDEFINED), m_length(0) {}
-        packet(packet_type t) : m_type(t), m_length(0) {}
+        packet() : m_type(packet_type::UNDEFINED), m_length(0), m_count(0), m_capacity(0) {}
+        packet(packet_type t) : m_type(t), m_length(0), m_count(0), m_capacity(0) {}
         packet(std::span<uint8_t>);
         ~packet();
 

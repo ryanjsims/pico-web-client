@@ -3,6 +3,45 @@
 #include "logger.h"
 #include <cstring>
 
+std::string mqtt::packet_type_string(mqtt::packet_type type) {
+    switch(type) {
+        case packet_type::UNDEFINED:
+            return "undefined";
+        case packet_type::CONNECT:
+            return "connect";
+        case packet_type::CONNACK:
+            return "connack";
+        case packet_type::PUBLISH:
+            return "publish";
+        case packet_type::PUBACK:
+            return "puback";
+        case packet_type::PUBREC:
+            return "pubrec";
+        case packet_type::PUBREL:
+            return "pubrel";
+        case packet_type::PUBCOMP:
+            return "pubcomp";
+        case packet_type::SUBSCRIBE:
+            return "subscribe";
+        case packet_type::SUBACK:
+            return "suback";
+        case packet_type::UNSUBSCRIBE:
+            return "unsubscribe";
+        case packet_type::UNSUBACK:
+            return "unsuback";
+        case packet_type::PINGREQ:
+            return "pingreq";
+        case packet_type::PINGRESP:
+            return "pingresp";
+        case packet_type::DISCONNECT:
+            return "disconnect";
+        case packet_type::AUTH:
+            return "auth";
+        default:
+            return "(unknown)";
+    }
+}
+
 void mqtt::packet::expand_if_needed(uint32_t length_to_add) {
     if(data == nullptr) {
         m_capacity = 128;
