@@ -26,7 +26,9 @@ mqtt::client::client(
     , m_state(mqtt::client::state::disconnected)
     , m_client_id(u8"")
     , m_current_packet_id(1)
+    , m_user_connected([](){})
 {
+    critical_section_init(&generate_id_section);
     parse_url();
     m_tcp->on_receive(std::bind(&mqtt::client::tcp_recv_callback, this));
     m_tcp->on_send(std::bind(&mqtt::client::tcp_send_callback, this, std::placeholders::_1));
@@ -38,6 +40,7 @@ mqtt::client::~client() {
     if(m_tcp) {
         delete m_tcp;
     }
+    critical_section_deinit(&generate_id_section);
 }
 
 void mqtt::client::connect() {
@@ -147,12 +150,14 @@ bool mqtt::client::connected() {
 }
 
 uint16_t mqtt::client::generate_packet_id() {
+    critical_section_enter_blocking(&generate_id_section);
     uint16_t to_return = m_current_packet_id;
     if(m_current_packet_id == 0xFFFE) {
         m_current_packet_id = 1;
     } else {
         m_current_packet_id++;
     }
+    critical_section_exit(&generate_id_section);
     return to_return;
 }
 
@@ -458,6 +463,7 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
     if(ack.reason() == reason_code::SUCCESS && m_state == state::connecting) {
         m_state = state::connected;
         info("MQTT connected with client id '%.*s'\n\tMax QoS:  %d\n\tRecv Max: %d\n", m_client_id.size(), m_client_id.data(), m_max_qos, m_send_quota);
+        m_user_connected();
     } else {
         m_state = state::disconnecting;
     }

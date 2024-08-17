@@ -3,8 +3,10 @@
 #include <span>
 #include <string>
 #include <queue>
-#include <pico/time.h>
 #include <vector>
+
+#include <pico/time.h>
+#include <pico/sync.h>
 
 #include <mqtt/packets.h>
 
@@ -31,6 +33,10 @@ namespace mqtt {
         void connect(std::u8string username, std::span<uint8_t> password);
         void connect(std::u8string username, std::u8string password);
         void connect();
+
+        void on_connect(std::function<void()> user_connect_callback) {
+            m_user_connected = user_connect_callback;
+        }
 
         void disconnect(reason_code reason);
 
@@ -83,8 +89,10 @@ namespace mqtt {
         int m_port;
         state m_state;
         repeating_timer_t queue_timer;
+        critical_section_t generate_id_section;
 
         std::vector<subscription_t> m_subscriptions;
+        std::function<void()> m_user_connected;
 
         bool parse_url();
 
