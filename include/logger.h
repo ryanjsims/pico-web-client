@@ -1,5 +1,7 @@
 #pragma once
 #include <pico/time.h>
+#include <cstdio>
+#include <cctype>
 
 #define LOG_LEVEL_TRACE    0
 #define LOG_LEVEL_DEBUG    1
@@ -84,3 +86,9 @@
 #define error_cont(message, ...) (void)0
 #define error_cont1(message) (void)0
 #endif
+
+void __dump_ascii_info(const uint8_t *bptr, uint start, uint end);
+void __dump_ascii_debug(const uint8_t *bptr, uint start, uint end);
+void dump_bytes_info(const uint8_t *bptr, uint32_t len);
+void dump_bytes(const uint8_t *bptr, uint32_t len);
+void dump_bytes_debug(const uint8_t *bptr, uint32_t len);
