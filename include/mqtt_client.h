@@ -17,6 +17,8 @@ class tcp_base;
 namespace mqtt {
     // Publish Handler function that receives the topic name, publish properties, and the publish payload
     using publish_handler_t = std::function<mqtt::reason_code(std::u8string_view, const mqtt::properties&, std::span<uint8_t>)>;
+    // If this handler function is called, it is a protocol error
+    const publish_handler_t NULL_SUB_HANDLER = [](std::u8string_view, const mqtt::properties&, std::span<uint8_t>){ return reason_code::ERROR_PROTOCOL; };
 
     class client {
     public:
@@ -40,6 +42,8 @@ namespace mqtt {
 
         void publish(std::u8string topic, publish_packet::flags_t flags, std::span<uint8_t> data);
         void publish(std::u8string topic, publish_packet::flags_t flags, std::u8string content_type, std::span<uint8_t> data);
+
+        bool connected();
 
     private:
         enum class state {
@@ -71,6 +75,7 @@ namespace mqtt {
         std::string m_url, m_host;
         std::u8string m_username, m_client_id;
         std::span<uint8_t> m_cert, m_password;
+        uint16_t m_current_packet_id;
         int m_port;
         state m_state;
         repeating_timer_t queue_timer;
@@ -86,6 +91,7 @@ namespace mqtt {
         packet* get_unacked(packet_type type, uint16_t packet_id);
         void clear_unacked();
         void resend_reconnect();
+        uint16_t generate_packet_id();
 
         void handle_connect(packet* p);
         void handle_connack(packet* p);

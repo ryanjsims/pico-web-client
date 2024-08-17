@@ -5,11 +5,12 @@
 #include <tcp_client.h>
 #include <tcp_tls_client.h>
 
+#include <cstring>
 #include "LUrlParser.h"
 
 namespace mqtt {
     uint16_t get_u16(std::span<uint8_t> data) {
-        return uint16_t{(data[0] << 8) | data[1]};
+        return (uint16_t)((data[0] << 8) | data[1]);
     }
 }
 
@@ -23,6 +24,8 @@ mqtt::client::client(
     , m_cert(cert)
     , m_tcp(nullptr)
     , m_state(mqtt::client::state::disconnected)
+    , m_client_id(u8"")
+    , m_current_packet_id(1)
 {
     parse_url();
     m_tcp->on_receive(std::bind(&mqtt::client::tcp_recv_callback, this));
@@ -34,6 +37,113 @@ mqtt::client::~client() {
     if(m_tcp) {
         delete m_tcp;
     }
+}
+
+void mqtt::client::connect() {
+    connect(u8"", std::span<uint8_t>{});
+}
+
+void mqtt::client::connect(std::u8string username, std::u8string password) {
+    connect(username, std::span<uint8_t>{(uint8_t*)password.data(), password.size()});
+}
+
+void mqtt::client::connect(std::u8string username, std::span<uint8_t> password) {
+    mqtt::connect_packet packet{m_client_id, username, password};
+    m_send_queue.push(packet.release());
+
+    m_state = mqtt::client::state::connecting;
+    m_tcp->on_connected(std::bind(&mqtt::client::tcp_connected_callback, this));
+    m_tcp->connect(m_host, m_port);
+}
+
+void mqtt::client::disconnect(reason_code reason) {
+    mqtt::disconnect_packet packet(reason);
+    m_send_queue.push(packet.release());
+    m_state = state::disconnecting;
+}
+
+void mqtt::client::subscribe(std::u8string topic_filter, subscribe_packet::options_t options, publish_handler_t handler) {
+    subscribe({&topic_filter, 1}, {&options, 1}, handler);
+}
+
+void mqtt::client::subscribe(std::span<std::u8string> topic_filters, std::span<subscribe_packet::options_t> options, publish_handler_t handler) {
+    subscription_t sub = {
+        {topic_filters.begin(), topic_filters.end()},
+        {},
+        handler,
+        true // We could start receiving events right away
+    };
+
+    info("mqtt::client::subscribe: have %d stored subs\n", m_subscriptions.size());
+
+    uint i;
+    for(i = 0; i < m_subscriptions.size(); i++) {
+        if(!m_subscriptions[i].active) {
+            m_subscriptions[i] = sub;
+            break;
+        }
+    }
+    if(i == m_subscriptions.size()) {
+        m_subscriptions.push_back(sub);
+    }
+    info("mqtt::client::subscribe: adding subscription with id %d\n", i);
+
+    mqtt::properties properties;
+    varint_t value(i);
+    uint8_t data[value.length];
+    value.serialize({data, value.length});
+    property subscription_id{property_name::SUB_ID, {data, value.length}};
+    properties.push_back(subscription_id);
+
+    subscribe_packet packet(generate_packet_id(), topic_filters, options, properties);
+    m_send_queue.push(packet.release());
+}
+
+void mqtt::client::unsubscribe(std::u8string topic_filter) {
+    unsubscribe({&topic_filter, 1});
+}
+
+void mqtt::client::unsubscribe(std::span<std::u8string> topic_filters) {
+    unsubscribe_packet packet(generate_packet_id(), topic_filters);
+
+    m_send_queue.push(packet.release());
+}
+
+void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, std::span<uint8_t> data) {
+    publish(topic, flags, u8"", data);
+}
+
+void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, std::u8string content_type, std::span<uint8_t> data) {
+    mqtt::packet* to_send;
+    if(content_type.size() > 0) {
+        mqtt::properties properties;
+        uint8_t ct_data[content_type.size() + 2];
+        ct_data[0] = (content_type.size() >> 8) & 0xFF;
+        ct_data[1] = content_type.size() & 0xFF;
+        memcpy(&ct_data[2], content_type.data(), content_type.size());
+        property content_type_property(property_name::CONTENT_TYPE, {ct_data, content_type.size() + 2});
+        properties.push_back(content_type_property);
+        publish_packet packet(flags, topic, generate_packet_id(), data, properties);
+        to_send = packet.release();
+    } else {
+        publish_packet packet(flags, topic, generate_packet_id(), data);\
+        to_send = packet.release();
+    }
+    m_send_queue.push(to_send);
+}
+
+bool mqtt::client::connected() {
+    return m_state == state::connected;
+}
+
+uint16_t mqtt::client::generate_packet_id() {
+    uint16_t to_return = m_current_packet_id;
+    if(m_current_packet_id == 0xFFFE) {
+        m_current_packet_id = 1;
+    } else {
+        m_current_packet_id++;
+    }
+    return to_return;
 }
 
 bool mqtt::client::parse_url() {
@@ -110,22 +220,19 @@ mqtt::packet* mqtt::client::get_next_packet() {
         m_send_queue.pop();
     }
     // if we've looked at the entire queue and none can be sent, abort this send
-    if(i == m_send_queue.size()) {
-        info1("mqtt::client::handle_packet_queues: at QoS quota, no messages to send!\n");
+    if(i == m_send_queue.size() && to_send->masked() == packet_type::PUBLISH && to_send->qos() > 0) {
+        debug1("mqtt::client::handle_packet_queues: at QoS quota, no messages to send!\n");
         m_send_queue.push(to_send);
         return nullptr;
     }
     return to_send;
 }
 
-void dump_bytes(const uint8_t *bptr, uint32_t len);
-
 void mqtt::client::handle_packet_queues() {
-    if(m_tcp->connected() && m_send_queue.size() > 0) {
-        packet* to_send = get_next_packet();
-
+    packet* to_send;
+    if(m_tcp->connected() && m_send_queue.size() > 0 && (to_send = get_next_packet())) {
         std::span<uint8_t> data = to_send->serialize();
-        dump_bytes(data.data(), data.size());
+        dump_bytes_debug(data.data(), data.size());
         m_tcp->write(data);
 
         mqtt::packet_type masked = to_send->masked();
@@ -142,12 +249,18 @@ void mqtt::client::handle_packet_queues() {
         case mqtt::packet_type::PINGREQ:
             m_unacked_sends.push(to_send);
             break;
+        case mqtt::packet_type::DISCONNECT:
+            m_state = state::disconnected;
         default:
             delete to_send;
         }
+        std::string packet_name = packet_type_string(masked);
+        info("Sending %.*s packet\n", packet_name.size(), packet_name.data());
     } 
     if(m_tcp->connected() && m_recv_queue.size() > 0) {
+        info1("Handling recv packet...\n");
         packet* recved = m_recv_queue.front();
+        m_recv_queue.pop();
         mqtt::packet_type masked = recved->masked();
         switch(masked) {
         case mqtt::packet_type::CONNECT:
@@ -276,12 +389,14 @@ void mqtt::client::resend_reconnect() {
 }
 
 void mqtt::client::handle_connect(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_connect\n");
     // Clients shouldn't receive connects...
     disconnect(reason_code::ERROR_PROTOCOL);
     delete packet;
 }
 
 void mqtt::client::handle_connack(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_connack\n");
     connack_packet ack(packet);
 
     bool session_present = ack.flags().session_present();
@@ -293,6 +408,8 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
     } else {
         clear_unacked();
         m_subscriptions.clear();
+        // needed so sub ids are in the range 1-268,435,455
+        m_subscriptions.push_back({{}, {}, NULL_SUB_HANDLER, true});
     }
 
     std::vector<const property*> recv_max = ack.properties()[property_name::RECV_MAX];
@@ -320,12 +437,14 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
 
     std::vector<const property*> client_id = ack.properties()[property_name::CLIENT_ID];
     if(client_id.size() == 1) {
+        debug1("Setting client ID from properties...\n");
+        dump_bytes_debug((uint8_t*)client_id[0]->as_string().data(), client_id[0]->as_string().size());
         m_client_id = client_id[0]->as_string();
     }
 
     if(ack.reason() == reason_code::SUCCESS && m_state == state::connecting) {
         m_state = state::connected;
-        info("MQTT connected with client id '%*s'\n\tMax QoS:  %d\n\tRecv Max: %d\n", m_client_id.size(), m_client_id.data(), m_max_qos, m_send_quota);
+        info("MQTT connected with client id '%.*s'\n\tMax QoS:  %d\n\tRecv Max: %d\n", m_client_id.size(), m_client_id.data(), m_max_qos, m_send_quota);
     } else {
         m_state = state::disconnecting;
     }
@@ -333,6 +452,7 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_publish(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_publish\n");
     publish_packet pub(packet);
     uint16_t packet_id = *pub.id();
     reason_code reason = mqtt::reason_code::SUCCESS;
@@ -354,7 +474,7 @@ void mqtt::client::handle_publish(mqtt::packet* packet) {
     // If no subscription could be found, this is an unsolicited publish
     for(uint i = 0; i < sub_ids.size(); i++) {
         varint_t sub_id = sub_ids[i]->as_varint();
-        if(sub_id < m_subscriptions.size()) {
+        if(sub_id < m_subscriptions.size() && m_subscriptions[sub_id].active) {
             reason_code temp = m_subscriptions[sub_id].handler(pub.topic(), pub.properties(), pub.payload());
             if(reason == reason_code::SUCCESS && temp != reason_code::SUCCESS) {
                 reason = temp;
@@ -374,6 +494,7 @@ void mqtt::client::handle_publish(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_puback(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_puback\n");
     puback_packet ack(packet);
     uint16_t packet_id = ack.id();
     mqtt::packet* unacked = get_unacked(mqtt::packet_type::PUBLISH, packet_id);
@@ -384,6 +505,7 @@ void mqtt::client::handle_puback(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_pubrec(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_pubrec\n");
     pubrec_packet rec(packet);
     uint16_t packet_id = rec.id();
     mqtt::reason_code reason = reason_code::ERROR_PKT_ID_DNE;
@@ -400,6 +522,7 @@ void mqtt::client::handle_pubrec(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_pubrel(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_pubrel\n");
     pubrel_packet rel(packet);
     uint16_t packet_id = rel.id();
     mqtt::reason_code reason = reason_code::ERROR_PKT_ID_DNE;
@@ -415,6 +538,7 @@ void mqtt::client::handle_pubrel(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_pubcomp(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_pubcomp\n");
     pubcomp_packet comp(packet);
     uint16_t packet_id = comp.id();
     mqtt::packet* unacked = get_unacked(mqtt::packet_type::PUBREL, packet_id);
@@ -425,12 +549,14 @@ void mqtt::client::handle_pubcomp(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_subscribe(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_subscribe\n");
     // Clients shouldn't receive subscribes...
     disconnect(reason_code::ERROR_PROTOCOL);
     delete packet;
 }
 
 void mqtt::client::handle_suback(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_suback\n");
     suback_packet ack(packet);
     uint16_t packet_id = ack.id();
     mqtt::packet* unacked = get_unacked(mqtt::packet_type::SUBSCRIBE, packet_id);
@@ -454,7 +580,7 @@ void mqtt::client::handle_suback(mqtt::packet* packet) {
             break;
         default:
             topic = sub.topic_filter(i);
-            error("Error 0x%02x subscribing to topic filter %*s\n", reasons[i], topic.size(), topic.data());
+            error("Error 0x%02x subscribing to topic filter %.*s\n", reasons[i], topic.size(), topic.data());
             m_subscriptions[sub_id].topic_filters[i] = u8"";
             m_subscriptions[sub_id].max_qos.push_back((uint8_t)reasons[i]);
             break;
@@ -468,12 +594,14 @@ void mqtt::client::handle_suback(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_unsubscribe(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_unsubscribe\n");
     // Clients shouldn't receive unsubscribes...
     disconnect(reason_code::ERROR_PROTOCOL);
     delete packet;
 }
 
 void mqtt::client::handle_unsuback(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_unsuback\n");
     unsuback_packet ack(packet);
     uint16_t packet_id = ack.id();
     mqtt::packet* unacked = get_unacked(mqtt::packet_type::UNSUBSCRIBE, packet_id);
@@ -509,10 +637,10 @@ void mqtt::client::handle_unsuback(mqtt::packet* packet) {
             }
             break;
         case reason_code::NO_EXISTING_SUB:
-            warn("Client could not unsubscribe from '%*s' - no subscription was registered!\n", topic_filter.size(), topic_filter.data());
+            warn("Client could not unsubscribe from '%.*s' - no subscription was registered!\n", topic_filter.size(), topic_filter.data());
             break;
         default:
-            error("mqtt::client::handle_unsuback: code 0x%02x for topic filter '%*s'\n", topic_filter.size(), topic_filter.data());
+            error("mqtt::client::handle_unsuback: code 0x%02x for topic filter '%.*s'\n", topic_filter.size(), topic_filter.data());
             break;
         }
     }
@@ -522,12 +650,14 @@ void mqtt::client::handle_unsuback(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_pingreq(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_pingreq\n");
     // Clients shouldn't receive ping requests...
     disconnect(reason_code::ERROR_PROTOCOL);
     delete packet;
 }
 
 void mqtt::client::handle_pingresp(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_pingresp\n");
     pingresp_packet resp(packet);
     mqtt::packet* unacked = get_unacked(mqtt::packet_type::PINGREQ, 0xFFFF);
 
@@ -536,6 +666,7 @@ void mqtt::client::handle_pingresp(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_disconnect(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_disconnect\n");
     disconnect_packet disc(packet);
 
     info("Disconnected with reason 0x%02x\n", disc.reason());
@@ -545,6 +676,7 @@ void mqtt::client::handle_disconnect(mqtt::packet* packet) {
 }
 
 void mqtt::client::handle_auth(mqtt::packet* packet) {
+    debug1("mqtt::client::handle_auth\n");
     error1("Extended authentication not currently supported\n");
     disconnect(reason_code::ERROR_IMPL_SPECIFIC);
     delete packet;
@@ -562,15 +694,7 @@ void mqtt::client::tcp_recv_callback() {
     m_tcp->read(span);
     #if LOG_LEVEL <= LOG_LEVEL_DEBUG
     debug("mqtt::client recv'd %d bytes\n", span.size());
-    for (uint32_t i = 0; i < span.size();) {
-        if ((i & 0x0f) == 0 && i != 0) {
-            debug_cont1("\n");
-        } else if ((i & 0x07) == 0 && i != 0) {
-            debug_cont1(" ");
-        }
-        debug_cont("%02x ", span[i++]);
-    }
-    debug_cont1("\n");
+    dump_bytes_debug(span.data(), span.size());
     #endif
     mqtt::packet* received = new mqtt::packet(span);
     if(received == nullptr) {
@@ -578,30 +702,17 @@ void mqtt::client::tcp_recv_callback() {
         return;
     }
     m_recv_queue.push(received);
+    std::string packet_name = packet_type_string(received->masked());
+    info("Received %.*s packet\n", packet_name.size(), packet_name.data());
 }
 
 void mqtt::client::tcp_closed_callback() {
     debug1("mqtt::client::tcp_closed_callback\n");
+    cancel_repeating_timer(&queue_timer);
 }
 
 void mqtt::client::tcp_error_callback(err_t err) {
     debug1("mqtt::client::tcp_error_callback\n");
     error("Got error: '%s'\n", tcp_perror(err).c_str());
-}
-
-void mqtt::client::connect() {
-    connect(u8"", std::span<uint8_t>{});
-}
-
-void mqtt::client::connect(std::u8string username, std::u8string password) {
-    connect(username, std::span<uint8_t>{(uint8_t*)password.data(), password.size()});
-}
-
-void mqtt::client::connect(std::u8string username, std::span<uint8_t> password) {
-    mqtt::connect_packet packet{username, password};
-    m_send_queue.push(packet.release());
-
-    m_state = mqtt::client::state::connecting;
-    m_tcp->on_connected(std::bind(&mqtt::client::tcp_connected_callback, this));
-    m_tcp->connect(m_host, m_port);
+    cancel_repeating_timer(&queue_timer);
 }
