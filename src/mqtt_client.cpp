@@ -29,6 +29,7 @@ mqtt::client::client(
 {
     parse_url();
     m_tcp->on_receive(std::bind(&mqtt::client::tcp_recv_callback, this));
+    m_tcp->on_send(std::bind(&mqtt::client::tcp_send_callback, this, std::placeholders::_1));
     m_tcp->on_closed(std::bind(&mqtt::client::tcp_closed_callback, this));
     m_tcp->on_error(std::bind(&mqtt::client::tcp_error_callback, this, std::placeholders::_1));
 }
@@ -704,6 +705,13 @@ void mqtt::client::tcp_recv_callback() {
     m_recv_queue.push(received);
     std::string packet_name = packet_type_string(received->masked());
     info("Received %.*s packet\n", packet_name.size(), packet_name.data());
+}
+
+void mqtt::client::tcp_send_callback(uint16_t len) {
+    if(m_state == state::disconnecting) {
+        m_state = state::disconnected;
+        m_tcp->close(ERR_CLSD);
+    }
 }
 
 void mqtt::client::tcp_closed_callback() {

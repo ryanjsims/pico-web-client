@@ -111,6 +111,7 @@ namespace mqtt {
 
         void tcp_connected_callback();
         void tcp_recv_callback();
+        void tcp_send_callback(uint16_t);
         void tcp_closed_callback();
         void tcp_error_callback(err_t);
     };
