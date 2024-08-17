@@ -19,6 +19,7 @@ tcp_tls_client::tcp_tls_client(std::span<uint8_t> cert)
     , user_connected_callback([](){})
     , user_poll_callback([](){})
     , user_closed_callback([](){})
+    , user_send_callback([](u16_t){})
     , user_error_callback([](err_t){})
 {
     if(tls_config == nullptr) {
@@ -237,6 +238,8 @@ err_t tcp_tls_client::poll_callback(void* arg, altcp_pcb* pcb) {
 
 err_t tcp_tls_client::sent_callback(void* arg, altcp_pcb* pcb, uint16_t len) {
     debug("Sent %d bytes\n", len);
+    tcp_tls_client *client = (tcp_tls_client*)arg;
+    client->user_send_callback(len);
     return ERR_OK;
 }
 

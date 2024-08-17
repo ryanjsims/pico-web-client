@@ -18,6 +18,7 @@ tcp_client::tcp_client()
     , user_connected_callback([](){})
     , user_poll_callback([](){})
     , user_closed_callback([](){})
+    , user_send_callback([](u16_t){})
     , user_error_callback([](err_t){})
 {
     debug1("Initializing DNS...\n");
@@ -176,8 +177,9 @@ err_t tcp_client::poll_callback(void* arg, tcp_pcb* pcb) {
 }
 
 err_t tcp_client::sent_callback(void* arg, tcp_pcb* pcb, u16_t len) {
-    tcp_client *client = (tcp_client*)arg;
     debug("Sent %d bytes\n", len);
+    tcp_client *client = (tcp_client*)arg;
+    client->user_send_callback(len);
     return ERR_OK;
 }
 

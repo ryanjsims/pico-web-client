@@ -37,6 +37,10 @@ public:
         user_connected_callback = callback;
     }
 
+    void on_send(std::function<void(u16_t)> callback) override {
+        user_send_callback = callback;
+    }
+
     void on_poll(uint8_t interval_seconds, std::function<void()> callback);
 
     void on_closed(std::function<void()> callback) override {
@@ -60,6 +64,7 @@ protected:
     bool connected_, initialized_;
     uint16_t port_;
     std::function<void()> user_receive_callback, user_connected_callback, user_poll_callback, user_closed_callback;
+    std::function<void(u16_t)> user_send_callback;
     std::function<void(err_t)> user_error_callback;
 
     bool connect();
