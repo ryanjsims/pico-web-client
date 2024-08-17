@@ -169,7 +169,7 @@ void tcp_client::dns_callback(const char* name, const ip_addr_t *addr, void* arg
 }
 
 err_t tcp_client::poll_callback(void* arg, tcp_pcb* pcb) {
-    debug1("poll_callback\n");
+    trace1("poll_callback\n");
     tcp_client *client = (tcp_client*)arg;
     client->user_poll_callback();
     return ERR_OK;
