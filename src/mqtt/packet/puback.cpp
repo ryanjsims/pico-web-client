@@ -9,14 +9,16 @@ mqtt::puback_packet::puback_packet(uint16_t pkt_id, reason_code reason, mqtt::pr
     packet& puback = *m_packet;
 
     puback += pkt_id;
-    puback += (uint8_t)reason;
-    puback += m_properties;
+    if(reason != reason_code::SUCCESS || m_properties.m_length > 0) {
+        puback += (uint8_t)reason;
+        puback += m_properties;
+    }
 }
 
 mqtt::puback_packet::puback_packet(mqtt::packet* packet) 
     : m_owned(false)
     , m_packet(packet)
-    , m_properties(packet->contents().subspan(props_offset()))
+    , m_properties(packet->size() > 2 ? packet->contents().subspan(props_offset()) : std::span<uint8_t>{})
 {}
 
 mqtt::puback_packet::~puback_packet() {

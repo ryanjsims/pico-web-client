@@ -9,14 +9,16 @@ mqtt::pubrel_packet::pubrel_packet(uint16_t pkt_id, reason_code reason, mqtt::pr
     packet& pubrel = *m_packet;
 
     pubrel += pkt_id;
-    pubrel += (uint8_t)reason;
-    pubrel += m_properties;
+    if(reason != reason_code::SUCCESS || m_properties.m_length > 0) {
+        pubrel += (uint8_t)reason;
+        pubrel += m_properties;
+    }
 }
 
 mqtt::pubrel_packet::pubrel_packet(mqtt::packet* packet) 
     : m_owned(false)
     , m_packet(packet)
-    , m_properties(packet->contents().subspan(props_offset()))
+    , m_properties(packet->size() > 2 ? packet->contents().subspan(props_offset()) : std::span<uint8_t>{})
 {}
 
 mqtt::pubrel_packet::~pubrel_packet() {

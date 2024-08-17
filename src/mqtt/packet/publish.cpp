@@ -42,7 +42,11 @@ size_t mqtt::publish_packet::id_offset() const {
 }
 
 size_t mqtt::publish_packet::props_offset() const {
-    return id_offset() + 2;
+    size_t offset = id_offset();
+    if(flags().qos() > 0) {
+        return offset + 2;
+    }
+    return offset;
 }
 
 size_t mqtt::publish_packet::payload_offset() const {

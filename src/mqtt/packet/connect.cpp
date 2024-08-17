@@ -12,7 +12,7 @@ mqtt::connect_packet::connect_packet(std::u8string client_id, std::u8string user
     connect += uint8_t{5};
 
     // flags
-    connect += uint8_t{((int)(username.size() > 0) << 7) | ((int)(password.size() > 0) << 6)};
+    connect += (uint8_t)(((int)(username.size() > 0) << 7) | ((int)(password.size() > 0) << 6));
     // keep alive
     connect += uint16_t{0};
     // properties
