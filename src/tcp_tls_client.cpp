@@ -25,6 +25,8 @@ tcp_tls_client::tcp_tls_client(std::span<uint8_t> cert)
         debug1("Creating tls_config...\n");
         tls_config = altcp_tls_create_config_client(cert.data(), cert.size());
     }
+    debug1("Initializing TCP TLS Client\n");
+    initialized_ = init();
 }
 
 tcp_tls_client::~tcp_tls_client() {
@@ -133,6 +135,11 @@ err_t tcp_tls_client::close(err_t reason) {
 
 bool tcp_tls_client::connect(std::string hostname, uint16_t port) {
     info("tcp_tls_client::connect to %.*s:%d\n", hostname.size(), hostname.data(), port);
+
+    if(tcp_controlblock == nullptr) {
+        initialized_ = init();
+    }
+
     debug1("Setting mbedtls hostname...\n");
     mbedtls_ssl_context* ssl_context = (mbedtls_ssl_context*)altcp_tls_context(tcp_controlblock);
     debug("ssl_context = %p\n", ssl_context);
@@ -154,10 +161,6 @@ bool tcp_tls_client::connect(std::string hostname, uint16_t port) {
 }
 
 bool tcp_tls_client::connect() {
-    if(tcp_controlblock == nullptr) {
-        init();
-    }
-
     cyw43_arch_lwip_begin();
     err_t err = altcp_connect(tcp_controlblock, &remote_addr, port_, connected_callback);
     cyw43_arch_lwip_end();

@@ -115,7 +115,7 @@ bool tcp_client::connect(std::string addr, uint16_t port) {
 
 bool tcp_client::connect() {
     if(tcp_controlblock == nullptr) {
-        init();
+        initialized_ = init();
     }
 
     cyw43_arch_lwip_begin();
