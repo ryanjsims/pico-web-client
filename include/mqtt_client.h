@@ -40,9 +40,25 @@ namespace mqtt {
 
         void disconnect(reason_code reason);
 
-        // Blocks until connected if client is connecting
+        /**
+         * Blocks until connected if client is connecting
+         * Handler is: 
+         * ____ mqtt::reason_code (
+         * ________ std::u8string_view,
+         * ________ const mqtt::properties&,
+         * ________ std::span<uint8_t>
+         * ____ )
+         */
         void subscribe(std::u8string topic_filter, subscribe_packet::options_t options, publish_handler_t handler);
-        // Blocks until connected if client is connecting
+        /**
+         * Blocks until connected if client is connecting
+         * Handler is: 
+         * ____ mqtt::reason_code (
+         * ________ std::u8string_view,
+         * ________ const mqtt::properties&,
+         * ________ std::span<uint8_t>
+         * ____ )
+         */
         void subscribe(std::span<std::u8string> topic_filters, std::span<subscribe_packet::options_t> options, publish_handler_t handler);
 
         void unsubscribe(std::u8string topic_filter);
