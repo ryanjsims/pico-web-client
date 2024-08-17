@@ -235,7 +235,7 @@ mqtt::packet* mqtt::client::get_next_packet() {
         m_send_queue.pop();
     }
     // if we've looked at the entire queue and none can be sent, abort this send
-    if(i == m_send_queue.size() && to_send->masked() == packet_type::PUBLISH && to_send->qos() > 0) {
+    if(i == m_send_queue.size() && to_send->masked() == packet_type::PUBLISH && to_send->qos() > 0 && m_send_quota == 0) {
         debug1("mqtt::client::handle_packet_queues: at QoS quota, no messages to send!\n");
         m_send_queue.push(to_send);
         return nullptr;
