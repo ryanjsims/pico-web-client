@@ -1,5 +1,7 @@
 #include <mqtt/properties.h>
 
+#include <logger.h>
+
 #include <cstring>
 
 std::span<uint8_t> mqtt::parse_binary(std::span<uint8_t> data) {
@@ -14,14 +16,15 @@ std::span<uint8_t> mqtt::parse_string_pair(std::span<uint8_t> data) {
 }
 
 std::span<uint8_t> mqtt::parse_varint(std::span<uint8_t> data) {
-    uint8_t i = 0;
+    // Varint has minimum size of 1
+    uint8_t i = 1;
     while(i < 4 && (data[i] & 0x80)) {
         i++;
     }
     return data.first(i);
 }
 
-mqtt::property::property(mqtt::property_name name, std::span<uint8_t> data) {
+std::span<uint8_t> mqtt::property::parse(mqtt::property_name name, std::span<uint8_t> data) {
     switch(name) {
     case property_name::PAYLOAD_FMT:
     case property_name::REQ_PROB_INFO:
@@ -31,20 +34,17 @@ mqtt::property::property(mqtt::property_name name, std::span<uint8_t> data) {
     case property_name::WILD_SUB_AVAIL:
     case property_name::SUB_ID_AVAIL:
     case property_name::SHARED_SUB_AVAIL:
-        m_data = data.first(1);
-        break;
+        return data.first(1);
     case property_name::KEEP_ALIVE:
     case property_name::RECV_MAX:
     case property_name::TOPIC_ALIAS_MAX:
     case property_name::TOPIC_ALIAS:
-        m_data = data.first(2);
-        break;
+        return data.first(2);
     case property_name::MSG_EXPIRY:
     case property_name::SESS_EXPIRY:
     case property_name::WILL_DELAY:
     case property_name::MAX_PKT_SIZE:
-        m_data = data.first(4);
-        break;
+        return data.first(4);
     case property_name::CONTENT_TYPE:
     case property_name::RESP_TOPIC:
     case property_name::CORR_DATA:
@@ -54,14 +54,14 @@ mqtt::property::property(mqtt::property_name name, std::span<uint8_t> data) {
     case property_name::RESP_INFO:
     case property_name::SERV_REF:
     case property_name::REASON:
-        m_data = parse_binary(data);
-        break;
+        return parse_binary(data);
     case property_name::SUB_ID:
-        m_data = parse_varint(data);
-        break;
+        return parse_varint(data);
     case property_name::USER_PROPERTY:
-        m_data = parse_string_pair(data);
-        break;
+        return parse_string_pair(data);
+    default:
+        error("mqtt::property::parse: unknown property 0x%02x\n", name);
+        return {};
     }
 }
 
@@ -82,7 +82,8 @@ mqtt::varint_t mqtt::property::as_varint() const {
 }
 
 std::u8string_view mqtt::property::as_string() const {
-    return std::u8string_view{(char8_t*)m_data.data() + 2, m_data.size() - 2};
+    uint16_t length = (uint16_t)((m_data[0] << 8) | m_data[1]);
+    return std::u8string_view{(char8_t*)m_data.data() + 2, length};
 }
 
 std::pair<std::u8string_view, std::u8string_view> mqtt::property::as_string_pair() const {
@@ -188,91 +189,55 @@ void mqtt::property::serialize(std::span<uint8_t> value) const {
     memcpy(value.data() + 1, m_data.data(), m_data.size());
 }
 
-mqtt::properties::properties(std::span<uint8_t> data) {
+mqtt::properties::properties(std::span<uint8_t> data): m_properties({}) {
     if(data.size() == 0) {
         m_length = {0};
-        m_count = 0;
-        m_capacity = 0;
-        m_properties = nullptr;
         return;
     }
     m_length = varint_t(data);
     data = data.subspan(m_length.length);
     uint32_t i = 0;
-    m_count = 0;
-    m_capacity = 4;
-    m_properties = (property*)malloc(sizeof(property) * m_capacity);
     while(i < m_length) {
-        if(m_count >= m_capacity) {
-            m_capacity *= 2;
-            m_properties = (property*)realloc(m_properties, sizeof(property) * m_capacity);
-        }
-        m_properties[m_count] = property((property_name)data[i], data.subspan(i + 1));
-        i += m_properties[m_count].size();
-        m_count++;
+        property_name name = (property_name)data[i];
+
+        m_properties.push_back({name, property::parse(name, data.subspan(i+1))});
+        i += m_properties[m_properties.size() - 1].size();
     }
 }
 
 mqtt::properties::properties(mqtt::properties&& other) {
     m_properties = other.m_properties;
-    m_count = other.m_count;
-    m_capacity = other.m_capacity;
     m_length = other.m_length;
-    other.m_properties = nullptr;
-    other.m_count = 0;
-    other.m_capacity = 0;
+    other.m_properties = {};
     other.m_length = {0};
-}
-
-mqtt::properties::~properties() {
-    if(m_properties) {
-        free(m_properties);
-        m_properties = nullptr;
-    }
 }
 
 void mqtt::properties::serialize(std::span<uint8_t> value) const {
     uint32_t offset = m_length.serialize(value);
-    for(uint32_t i = 0; i < m_count; i++) {
+    for(uint32_t i = 0; i < m_properties.size(); i++) {
         m_properties[i].serialize(value.subspan(offset));
         offset += m_properties[i].size();
     }
 }
 
 void mqtt::properties::push_back(property& value) {
-    if(m_properties == nullptr) {
-        m_capacity = 4;
-        m_properties = (property*)malloc(sizeof(property) * m_capacity);
-    }
-    if(m_count >= m_capacity) {
-        m_capacity *= 2;
-        m_properties = (property*)realloc(m_properties, sizeof(property) * m_capacity);
-    }
-    m_properties[m_count] = value;
-    m_length.value += m_properties[m_count].size();
-    m_count++;
+    m_properties.push_back(value);
+    m_length.value += m_properties[m_properties.size() - 1].size();
 }
 
 void mqtt::properties::pop(uint32_t index) {
-    if(m_count == 0) {
+    if(m_properties.size() == 0 || index >= m_properties.size()) {
         return;
     }
-    if(index < m_count - 1) {
-        std::swap(m_properties[index], m_properties[m_count - 1]);
-    }
-    m_count--;
-    m_length.value -= m_properties[m_count].size();
-    if(m_count < (m_capacity / 2)) {
-        m_capacity = m_capacity / 2;
-        m_properties = (property*)realloc(m_properties, sizeof(property) * m_capacity);
-    }
+    m_length.value -= m_properties[index].size();
+    m_properties.erase(m_properties.begin() + index);
 }
 
 std::vector<const mqtt::property*> mqtt::properties::operator[](property_name name) const {
     std::vector<const mqtt::property*> to_return;
-    for(int i = 0; i < m_count; i++) {
+    for(int i = 0; i < m_properties.size(); i++) {
         if(m_properties[i].m_name == name) {
-            to_return.push_back(m_properties + i);
+            to_return.push_back(&m_properties[i]);
         }
     }
     return to_return;

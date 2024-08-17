@@ -43,7 +43,6 @@ namespace mqtt {
     std::span<uint8_t> parse_varint(std::span<uint8_t> data);
 
     struct property {
-        property(property_name name, std::span<uint8_t> data);
         property_name m_name;
         std::span<uint8_t> m_data;
 
@@ -64,6 +63,7 @@ namespace mqtt {
 
         uint32_t size() const;
         void serialize(std::span<uint8_t>) const;
+        static std::span<uint8_t> parse(property_name name, std::span<uint8_t> data);
     };
 
     struct properties {
@@ -71,9 +71,8 @@ namespace mqtt {
 
         properties() : m_length(0) {};
         properties(std::span<uint8_t>);
-        properties(properties&) = delete;
+        properties(properties&) = default;
         properties(properties&&);
-        ~properties();
 
         void push_back(property&);
         void pop(uint32_t);
@@ -83,7 +82,6 @@ namespace mqtt {
         std::vector<const property*> operator[](property_name name) const;
 
     private:
-        property *m_properties = nullptr;
-        uint32_t m_count = 0, m_capacity = 0;
+        std::vector<property> m_properties;
     };
 }
