@@ -134,7 +134,7 @@ int main() {
     IP4_ADDR(&address, 1, 1, 1, 1);
     dns_setserver(1, &address);
 
-    mqtt::client client("mqtt://homeassistant.local", {(uint8_t*)ISRG_ROOT_X1_CERT, sizeof(ISRG_ROOT_X1_CERT)});
+    mqtt::client client("mqtts://homeassistant.local", {(uint8_t*)ISRG_ROOT_X1_CERT, sizeof(ISRG_ROOT_X1_CERT)});
     client.connect(u8"pico", u8"test");
 
     while(!client.connected()) {
