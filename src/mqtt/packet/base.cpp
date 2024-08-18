@@ -46,9 +46,11 @@ void mqtt::packet::expand_if_needed(uint32_t length_to_add) {
     if(data == nullptr) {
         m_capacity = 128;
         data = (uint8_t*)malloc(m_capacity);
+        trace("mqtt::packet::expand_if_needed: Created data %p with capacity 128\n", data);
     } else if((m_count + length_to_add) > m_capacity) {
-        m_capacity *= 2;
+        m_capacity = MAX(2 * m_capacity, m_count + length_to_add + 32);
         data = (uint8_t*)realloc(data, m_capacity);
+        trace("mqtt::packet::expand_if_needed: Reallocated data %p with capacity %d\n", data, m_capacity);
     }
     m_data = {data + 5, m_capacity};
 }
@@ -119,6 +121,7 @@ void mqtt::packet::add_raw(const std::span<uint8_t>& value) {
 mqtt::packet::packet(std::span<uint8_t> value) {
     m_type = (packet_type)value[0];
     m_length = varint_t{value.subspan(1)};
+    debug("mqtt::packet constructor: Creating %.*s packet of size %d\n", packet_type_string(masked()).size(), packet_type_string(masked()).data(), m_length + 5);
     data = (uint8_t*)malloc(m_length + 5);
     if(data == nullptr) {
         panic("mqtt::packet constructor: OOM when constructing packet\n");
@@ -137,6 +140,7 @@ std::span<uint8_t> mqtt::packet::serialize() {
 }
 
 mqtt::packet::~packet() {
+    debug("mqtt::packet destructor: Deleting %.*s packet\n", packet_type_string(masked()).size(), packet_type_string(masked()).data());
     if(data) {
         free(data);
         data = nullptr;
