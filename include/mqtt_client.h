@@ -89,7 +89,7 @@ namespace mqtt {
         tcp_base *m_tcp;
         // Queue containing sent packets that need to be acked by the peer
         // Only written to by send handler or when cycling through packets
-        std::queue<packet*> m_unacked_sends;
+        std::queue<std::pair<uint32_t, packet*>> m_unacked_sends;
         // Queue containing received packets that have not been handled
         // Only written to by tcp recv handler
         std::queue<packet*> m_recv_queue;
