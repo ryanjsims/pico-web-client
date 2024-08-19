@@ -391,6 +391,7 @@ mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
                 debug("mqtt::client::get_unacked: Found %.*s packet with matching id!\n", packet_type_string(unacked.second->masked()).size(), packet_type_string(unacked.second->masked()).data());
                 to_return = unacked.second;
             } else {
+                debug("mqtt::client::get_unacked: Found a %.*s packet, but IDs do not match (0x%04X != 0x%04X)\n", packet_type_string(unacked.second->masked()).size(), packet_type_string(unacked.second->masked()).data(), packet_id, unacked_id);
                 m_unacked_sends.push(unacked);
             }
         } else {

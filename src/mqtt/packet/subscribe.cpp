@@ -89,7 +89,7 @@ mqtt::varint_t mqtt::subscribe_packet::length() const {
 
 uint16_t mqtt::subscribe_packet::id() const {
     std::span<uint8_t> data = m_packet->contents();
-    return (data[id_offset()] << 8) | data[id_offset()];
+    return (data[id_offset()] << 8) | data[id_offset() + 1];
 }
 
 const mqtt::properties& mqtt::subscribe_packet::properties() const {
