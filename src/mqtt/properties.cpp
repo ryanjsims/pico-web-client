@@ -4,6 +4,67 @@
 
 #include <cstring>
 
+const std::string mqtt::property_string(mqtt::property_name name) {
+    switch(name) {
+    case mqtt::property_name::PAYLOAD_FMT:
+        return "Payload Format Indicator";
+    case mqtt::property_name::MSG_EXPIRY:
+        return "Message Expiry Interval";
+    case mqtt::property_name::CONTENT_TYPE:
+        return "Content Type";
+    case mqtt::property_name::RESP_TOPIC:
+        return "Response Topic";
+    case mqtt::property_name::CORR_DATA:
+        return "Correlation Data";
+    case mqtt::property_name::SUB_ID:
+        return "Subscription Identifier";
+    case mqtt::property_name::SESS_EXPIRY:
+        return "Session Expiry Interval";
+    case mqtt::property_name::CLIENT_ID:
+        return "Assigned Client Identifier";
+    case mqtt::property_name::KEEP_ALIVE:
+        return "Server Keep Alive";
+    case mqtt::property_name::AUTH_METHOD:
+        return "Authentication Method";
+    case mqtt::property_name::AUTH_DATA:
+        return "Authentication Data";
+    case mqtt::property_name::REQ_PROB_INFO:
+        return "Request Problem Information";
+    case mqtt::property_name::WILL_DELAY:
+        return "Will Delay Interval";
+    case mqtt::property_name::REQ_RESP_INFO:
+        return "Request Response Information";
+    case mqtt::property_name::RESP_INFO:
+        return "Response Information";
+    case mqtt::property_name::SERV_REF:
+        return "Server Reference";
+    case mqtt::property_name::REASON:
+        return "Reason String";
+    case mqtt::property_name::RECV_MAX:
+        return "Receive Maximum";
+    case mqtt::property_name::TOPIC_ALIAS_MAX:
+        return "Topic Alias Maximum";
+    case mqtt::property_name::TOPIC_ALIAS:
+        return "Topic Alias";
+    case mqtt::property_name::MAX_QOS:
+        return "Maximum QoS";
+    case mqtt::property_name::RETAIN_AVAIL:
+        return "Retain Available";
+    case mqtt::property_name::USER_PROPERTY:
+        return "User Property";
+    case mqtt::property_name::MAX_PKT_SIZE:
+        return "Maximum Packet Size";
+    case mqtt::property_name::WILD_SUB_AVAIL:
+        return "Wildcard Subscription Available";
+    case mqtt::property_name::SUB_ID_AVAIL:
+        return "Subscription Identifier Available";
+    case mqtt::property_name::SHARED_SUB_AVAIL:
+        return "Shared Subscription Available";
+    default:
+        return "(unknown property name)";
+    }
+}
+
 std::span<uint8_t> mqtt::parse_binary(std::span<uint8_t> data) {
     uint16_t value_length = (data[0] << 8) | data[1];
     return data.first(value_length + 2);

@@ -37,7 +37,17 @@ namespace mqtt {
             void username(bool to_set) { value = (to_set ? (value | (1 << 7)) : (value & ~(1 << 7))); }
         };
 
-        connect_packet(std::u8string client_id = u8"", std::u8string username = u8"", std::span<uint8_t> password = {}, mqtt::properties properties = mqtt::properties{});
+        connect_packet(
+            std::u8string client_id = u8"",
+            flags_t flags = {},
+            uint16_t keep_alive = 0,
+            mqtt::properties properties = mqtt::properties{},
+            mqtt::properties will_props = mqtt::properties{},
+            std::u8string will_topic = u8"",
+            std::span<uint8_t> will_payload = {},
+            std::u8string username = u8"",
+            std::span<uint8_t> password = {}
+        );
         connect_packet(packet* p);
         ~connect_packet();
 
@@ -54,7 +64,7 @@ namespace mqtt {
 
         // Payload
         std::u8string_view client_id() const;
-        const properties* will_properties() const;
+        const properties& will_properties() const;
         std::optional<std::u8string_view> will_topic() const;
         std::optional<std::span<uint8_t>> will_payload() const;
         std::optional<std::u8string_view> username() const;
@@ -67,7 +77,7 @@ namespace mqtt {
     private:
         packet* m_packet;
         properties m_properties;
-        properties *m_will_properties;
+        properties m_will_properties;
         bool m_owned;
 
         size_t protocol_offset() const;

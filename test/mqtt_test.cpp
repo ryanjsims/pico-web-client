@@ -134,8 +134,20 @@ int main() {
     IP4_ADDR(&address, 1, 1, 1, 1);
     dns_setserver(1, &address);
 
+    std::string will_message = "I died =/";
+    const std::u8string username = (const char8_t*)MQTT_USERNAME;
+    const std::u8string password = (const char8_t*)MQTT_PASSWORD;
+    info("Password is \"%.*s\"\n", password.size(), (char*)password.data());
+
     mqtt::client client("mqtts://homeassistant.local", {(uint8_t*)ISRG_ROOT_X1_CERT, sizeof(ISRG_ROOT_X1_CERT)});
-    client.connect(u8"pico", u8"test");
+    client.connect(
+        username,
+        {(uint8_t*)password.data(), password.size()},
+        30,
+        u8"pico/test/will",
+        {(uint8_t*)will_message.data(), will_message.size()},
+        0, false, {}, {}
+    );
 
     client.on_connect([&client](){
         info1("The client let me know we're connected!\n");
@@ -154,40 +166,71 @@ int main() {
 
     sleep_ms(10000);
 
-    std::vector<uint8_t> publish_data = {
-        0, 1, 2, 3, 4, 5, 6, 7, 8
-    };
-    client.publish(u8"pico/test/send", {}, publish_data);
+    client.disconnect(mqtt::reason_code::DISCONNECT_WILL);
 
-    sleep_ms(30000);
+    // client.publish(u8"pico/test/send", {}, publish_data);
 
-    client.unsubscribe(u8"pico/test");
+    // sleep_ms(30000);
 
-    sleep_ms(10000);
+    // client.unsubscribe(u8"pico/test");
 
-    client.subscribe(u8"pico/test", options, [](std::u8string_view topic, const mqtt::properties& props, std::span<uint8_t> payload){
-        info("Received message for topic: %.*s\n", topic.size(), topic.data());
-        dump_bytes(payload.data(), payload.size());
-        return mqtt::reason_code::SUCCESS;
-    });
+    // sleep_ms(10000);
 
-    sleep_ms(10000);
+    // client.subscribe(u8"pico/test", options, [](std::u8string_view topic, const mqtt::properties& props, std::span<uint8_t> payload){
+    //     info("Received message for topic: %.*s\n", topic.size(), topic.data());
+    //     dump_bytes(payload.data(), payload.size());
+    //     return mqtt::reason_code::SUCCESS;
+    // });
 
-    client.disconnect(mqtt::reason_code::NORMAL_DISCONNECT);
+    // sleep_ms(10000);
 
-    sleep_ms(10000);
+    // client.disconnect(mqtt::reason_code::NORMAL_DISCONNECT);
 
-    client.connect(u8"pico", u8"test");
+    // sleep_ms(10000);
 
-    while(!client.connected()) {
-        sleep_ms(100);
-    }
+    // client.connect(MQTT_USERNAME, MQTT_PASSWORD, 10);
 
-    client.subscribe(u8"pico/test", options, [](std::u8string_view topic, const mqtt::properties& props, std::span<uint8_t> payload){
-        info("Received message for topic: %.*s\n", topic.size(), topic.data());
-        dump_bytes(payload.data(), payload.size());
-        return mqtt::reason_code::SUCCESS;
-    });
+    // client.subscribe(u8"pico/test", options, [](std::u8string_view topic, const mqtt::properties& props, std::span<uint8_t> payload){
+    //     info("Received message for topic: %.*s\n", topic.size(), topic.data());
+    //     dump_bytes(payload.data(), payload.size());
+    //     return mqtt::reason_code::SUCCESS;
+    // });
+
+    // sleep_ms(30000);
+
+    // client.disconnect(mqtt::reason_code::NORMAL_DISCONNECT);
+
+    // sleep_ms(10000);
+
+    // client.connect(
+    //     MQTT_USERNAME,
+    //     {(uint8_t*)password.data(), password.size()},
+    //     30,
+    //     u8"pico/test/will",
+    //     {(uint8_t*)will_message.data(), will_message.size()},
+    //     0, false, {}, {}
+    // );
+
+    // sleep_ms(10000);
+
+    // client.disconnect(mqtt::reason_code::DISCONNECT_WILL);
+
+    // sleep_ms(5000);
+
+    // client.connect(
+    //     MQTT_USERNAME,
+    //     {(uint8_t*)password.data(), password.size()},
+    //     30,
+    //     u8"pico/test/will",
+    //     {(uint8_t*)will_message.data(), will_message.size()},
+    //     0, false, {}, {}
+    // );
+
+    // client.subscribe(u8"pico/test", options, [](std::u8string_view topic, const mqtt::properties& props, std::span<uint8_t> payload){
+    //     info("Received message for topic: %.*s\n", topic.size(), topic.data());
+    //     dump_bytes(payload.data(), payload.size());
+    //     return mqtt::reason_code::SUCCESS;
+    // });
 
     while(true) {
         sleep_ms(100);

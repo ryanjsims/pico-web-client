@@ -79,11 +79,13 @@ namespace mqtt {
         ERROR_WILD_SUBS_NOT_SUP  = 0xA2,
     };
 
+    const std::string reason_string(reason_code code, packet_type type);
+
     struct packet {
         packet_type m_type;
 
         packet() : m_type(packet_type::UNDEFINED), m_length(0), m_count(0), m_capacity(0) {}
-        packet(packet_type t) : m_type(t), m_length(0), m_count(0), m_capacity(0) {}
+        packet(packet_type t);
         packet(std::span<uint8_t>);
         ~packet();
 

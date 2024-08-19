@@ -1,29 +1,43 @@
 #include <mqtt/packet/connect.h>
 
-mqtt::connect_packet::connect_packet(std::u8string client_id, std::u8string username, std::span<uint8_t> password, mqtt::properties properties)
-    : m_will_properties(nullptr)
+mqtt::connect_packet::connect_packet(
+    std::u8string client_id,
+    flags_t flags,
+    uint16_t keep_alive,
+    mqtt::properties properties,
+    mqtt::properties will_props,
+    std::u8string will_topic,
+    std::span<uint8_t> will_payload,
+    std::u8string username,
+    std::span<uint8_t> password
+)
+    : m_will_properties(std::move(will_props))
     , m_properties(std::move(properties))
 {
     m_owned = true;
     m_packet = new packet(mqtt::packet_type::CONNECT);
 
     packet& connect = *m_packet;
+    // Protocol
     connect += u8"MQTT";
     connect += uint8_t{5};
 
-    // flags
-    connect += (uint8_t)(((int)(username.size() > 0) << 7) | ((int)(password.size() > 0) << 6));
-    // keep alive
-    connect += uint16_t{0};
-    // properties
+    // Configuration
+    connect += flags;
+    connect += keep_alive;
     connect += m_properties;
     // Client id
     connect += client_id;
+    if(flags.will()) {
+        connect += m_will_properties;
+        connect += will_topic;
+        connect += will_payload;
+    }
     // Add username and password if present
-    if(username.size() > 0) {
+    if(flags.username()) {
         connect += username;
     }
-    if(password.size() > 0) {
+    if(flags.password()) {
         connect += password;
     }
 }
@@ -32,20 +46,12 @@ mqtt::connect_packet::connect_packet(mqtt::packet* packet)
     : m_owned(false)
     , m_packet(packet)
     , m_properties(m_packet->contents().subspan(props_offset()))
-{
-    m_will_properties = nullptr;
-    if(flags().will()) {
-        m_will_properties = new properties(m_packet->contents().subspan(will_props_offset()));
-    }
-}
+    , m_will_properties(flags().will() ? m_packet->contents().subspan(will_props_offset()) : std::span<uint8_t>{})
+{}
 
 mqtt::connect_packet::~connect_packet() {
     if(m_owned && m_packet) {
         delete m_packet;
-    }
-
-    if(m_will_properties) {
-        delete m_will_properties;
     }
 }
 
@@ -85,8 +91,8 @@ size_t mqtt::connect_packet::will_topic_offset() const {
     if(!flags().will()) {
         return 0;
     }
-    const properties* will_props = will_properties();
-    return will_props_offset() + will_props->m_length + will_props->m_length.length;
+    const properties& will_props = will_properties();
+    return will_props_offset() + will_props.m_length + will_props.m_length.length;
 }
 
 size_t mqtt::connect_packet::will_payload_offset() const {
@@ -172,7 +178,7 @@ std::u8string_view mqtt::connect_packet::client_id() const {
     return {(char8_t*)m_packet->contents().subspan(client_id_offset() + 2).data(), len};
 }
 
-const mqtt::properties* mqtt::connect_packet::will_properties() const {
+const mqtt::properties& mqtt::connect_packet::will_properties() const {
     return m_will_properties;
 }
 
@@ -219,9 +225,5 @@ mqtt::packet* mqtt::connect_packet::release() {
     mqtt::packet* to_return = m_packet;
     m_packet = nullptr;
     m_owned = false;
-    if(m_will_properties) {
-        delete m_will_properties;
-        m_will_properties = nullptr;
-    }
     return to_return;
 }

@@ -108,6 +108,8 @@ target_compile_options(pico_mqtt_test PRIVATE "-Wno-psabi")
 target_compile_definitions(pico_mqtt_test PRIVATE 
     "WIFI_SSID=\"$ENV{WIFI_SSID}\""
     "WIFI_PASSWORD=\"$ENV{WIFI_PASSWORD}\""
+    "MQTT_USERNAME=\"$ENV{MQTT_USERNAME}\""
+    "MQTT_PASSWORD=\"$ENV{MQTT_PASSWORD}\""
     "LOG_LEVEL=$ENV{LOG_LEVEL}"
 )
 target_link_options(pico_mqtt_test PRIVATE "-Wl,--print-memory-usage")

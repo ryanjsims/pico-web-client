@@ -82,7 +82,7 @@ mqtt::varint_t mqtt::unsubscribe_packet::length() const {
 
 uint16_t mqtt::unsubscribe_packet::id() const {
     std::span<uint8_t> data = m_packet->contents();
-    return (data[id_offset()] << 8) | data[id_offset()];
+    return (data[id_offset()] << 8) | data[id_offset() + 1];
 }
 
 const mqtt::properties& mqtt::unsubscribe_packet::properties() const {

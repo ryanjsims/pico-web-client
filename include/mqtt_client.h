@@ -30,9 +30,11 @@ namespace mqtt {
         );
         ~client();
 
-        void connect(std::u8string username, std::span<uint8_t> password);
-        void connect(std::u8string username, std::u8string password);
         void connect();
+        void connect(std::u8string username, std::u8string password);
+        void connect(std::u8string username, std::u8string password, uint16_t keep_alive);
+        void connect(std::u8string username, std::span<uint8_t> password, uint16_t keep_alive);
+        void connect(std::u8string username, std::span<uint8_t> password, uint16_t keep_alive, std::u8string will_topic, std::span<uint8_t> will_payload, uint8_t will_qos, bool will_retain, mqtt::properties properties, mqtt::properties will_properties);
 
         void on_connect(std::function<void()> user_connect_callback) {
             m_user_connected = user_connect_callback;
@@ -102,6 +104,8 @@ namespace mqtt {
         std::u8string m_username, m_client_id;
         std::span<uint8_t> m_cert, m_password;
         uint16_t m_current_packet_id;
+        uint16_t m_keep_alive;
+        uint32_t m_last_send_time;
         int m_port;
         state m_state;
         repeating_timer_t queue_timer;
@@ -114,6 +118,11 @@ namespace mqtt {
 
         static bool queue_timer_callback(repeating_timer_t* rt);
         void handle_packet_queues();
+
+        void send_packet(packet*);
+        void recv_packet();
+        void resend_first_unacked();
+
         packet* get_next_packet();
         // Note: if packet is returned, it is removed from the unacked queue
         packet* get_unacked(packet_type type, uint16_t packet_id);

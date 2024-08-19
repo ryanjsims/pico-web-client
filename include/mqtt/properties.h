@@ -38,6 +38,8 @@ namespace mqtt {
         __VALUE_MAX
     };
 
+    const std::string property_string(property_name name);
+
     std::span<uint8_t> parse_binary(std::span<uint8_t> data);
     std::span<uint8_t> parse_string_pair(std::span<uint8_t> data);
     std::span<uint8_t> parse_varint(std::span<uint8_t> data);

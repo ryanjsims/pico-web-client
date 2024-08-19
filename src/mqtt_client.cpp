@@ -44,16 +44,44 @@ mqtt::client::~client() {
 }
 
 void mqtt::client::connect() {
-    connect(u8"", std::span<uint8_t>{});
+    connect(u8"", std::span<uint8_t>{}, 0);
 }
 
 void mqtt::client::connect(std::u8string username, std::u8string password) {
-    connect(username, std::span<uint8_t>{(uint8_t*)password.data(), password.size()});
+    connect(username, std::span<uint8_t>{(uint8_t*)password.data(), password.size()}, 0);
 }
 
-void mqtt::client::connect(std::u8string username, std::span<uint8_t> password) {
-    mqtt::connect_packet packet{m_client_id, username, password};
+void mqtt::client::connect(std::u8string username, std::u8string password, uint16_t keep_alive) {
+    connect(username, std::span<uint8_t>{(uint8_t*)password.data(), password.size()}, keep_alive);
+}
+
+void mqtt::client::connect(std::u8string username, std::span<uint8_t> password, uint16_t keep_alive) {
+    connect(username, password, keep_alive, u8"", {}, 0, false, {}, {});
+}
+
+void mqtt::client::connect(std::u8string username, std::span<uint8_t> password, uint16_t keep_alive, std::u8string will_topic, std::span<uint8_t> will_payload, uint8_t will_qos, bool will_retain, mqtt::properties properties, mqtt::properties will_properties) {
+    mqtt::connect_packet::flags_t flags;
+    flags.username(username.size() > 0);
+    flags.password(password.size() > 0);
+    flags.will(will_topic.size() > 0);
+    if(flags.will()) {
+        flags.will_qos(will_qos);
+        flags.will_ret(will_retain);
+    }
+    mqtt::connect_packet packet{
+        m_client_id, 
+        flags, 
+        keep_alive, 
+        properties, 
+        will_properties, 
+        will_topic, 
+        will_payload, 
+        username, 
+        password
+    };
     m_send_queue.push(packet.release());
+
+    m_keep_alive = keep_alive;
 
     m_state = mqtt::client::state::connecting;
     m_tcp->on_connected(std::bind(&mqtt::client::tcp_connected_callback, this));
@@ -245,104 +273,124 @@ mqtt::packet* mqtt::client::get_next_packet() {
 
 void mqtt::client::handle_packet_queues() {
     packet* to_send;
-    uint32_t now = to_ms_since_boot(get_absolute_time());
     if(m_tcp->connected() && m_send_queue.size() > 0 && (to_send = get_next_packet())) {
-        std::span<uint8_t> data = to_send->serialize();
-        dump_bytes_debug(data.data(), data.size());
-        m_tcp->write(data);
-
-        mqtt::packet_type masked = to_send->masked();
-        switch(masked) {
-        case mqtt::packet_type::PUBLISH:
-            if(to_send->qos() == 0) {
-                delete to_send;
-                break;
-            }
-            if(!to_send->dup()) {
-                m_send_quota--;
-                info("m_send_quota is now: %d\n", m_send_quota);
-            }
-        case mqtt::packet_type::PUBREC:
-        case mqtt::packet_type::PUBREL:
-        case mqtt::packet_type::SUBSCRIBE:
-        case mqtt::packet_type::UNSUBSCRIBE:
-        case mqtt::packet_type::PINGREQ:
-            m_unacked_sends.push({now, to_send});
-            break;
-        case mqtt::packet_type::DISCONNECT:
-            m_state = state::disconnected;
-        case mqtt::packet_type::CONNECT:
-            // Send connects and disconnects ASAP
-            m_tcp->flush();
-        default:
-            delete to_send;
-        }
-        std::string packet_name = packet_type_string(masked);
-        info("Sending %.*s packet\n", packet_name.size(), packet_name.data());
+        send_packet(to_send);
     } 
     if(m_tcp->connected() && m_recv_queue.size() > 0) {
-        info1("Handling recv packet...\n");
-        packet* recved = m_recv_queue.front();
-        m_recv_queue.pop();
-        mqtt::packet_type masked = recved->masked();
-        switch(masked) {
-        case mqtt::packet_type::CONNECT:
-            handle_connect(recved);
-            break;
-        case mqtt::packet_type::CONNACK:
-            handle_connack(recved);
-            break;
-        case mqtt::packet_type::PUBLISH:
-            handle_publish(recved);
-            break;
-        case mqtt::packet_type::PUBACK:
-            handle_puback(recved);
-            break;
-        case mqtt::packet_type::PUBREC:
-            handle_pubrec(recved);
-            break;
-        case mqtt::packet_type::PUBREL:
-            handle_pubrel(recved);
-            break;
-        case mqtt::packet_type::PUBCOMP:
-            handle_pubcomp(recved);
-            break;
-        case mqtt::packet_type::SUBSCRIBE:
-            handle_subscribe(recved);
-            break;
-        case mqtt::packet_type::SUBACK:
-            handle_suback(recved);
-            break;
-        case mqtt::packet_type::UNSUBSCRIBE:
-            handle_unsubscribe(recved);
-            break;
-        case mqtt::packet_type::UNSUBACK:
-            handle_unsuback(recved);
-            break;
-        case mqtt::packet_type::PINGREQ:
-            handle_pingreq(recved);
-            break;
-        case mqtt::packet_type::PINGRESP:
-            handle_pingresp(recved);
-            break;
-        case mqtt::packet_type::DISCONNECT:
-            handle_disconnect(recved);
-            break;
-        case mqtt::packet_type::AUTH:
-            handle_auth(recved);
-            break;
-        }
+        recv_packet();
     }
-
+    uint32_t now = to_ms_since_boot(get_absolute_time());
     if(m_tcp->connected() && m_unacked_sends.size() > 0 && ((m_unacked_sends.front().first > now) || ((now - m_unacked_sends.front().first) > 30000))) {
-        auto[timestamp, unacked] = m_unacked_sends.front();
-        m_unacked_sends.pop();
-        if(unacked->masked() == mqtt::packet_type::PUBLISH) {
-            unacked->dup(true);
-        }
-        info("Resending unacked packet, last sent at %d\n", timestamp);
-        m_send_queue.push(unacked);
+        resend_first_unacked();
     }
+    if(m_tcp->connected() && m_keep_alive && (now < m_last_send_time || (now - m_last_send_time) > ((uint32_t)m_keep_alive) * 800)) {
+        // When we're 80% of the way to the keep alive time without sending
+        // a packet, or if millisecond time has rolled over, enqueue a pingreq packet
+        // m_keep_alive is in seconds, now and m_last_send_time are in milliseconds
+        pingreq_packet ping{};
+        m_send_queue.push(ping.release());
+    }
+}
+
+void mqtt::client::send_packet(mqtt::packet* to_send) {
+    std::span<uint8_t> data = to_send->serialize();
+    dump_bytes_debug(data.data(), data.size());
+    m_tcp->write(data);
+
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    m_last_send_time = now;
+    mqtt::packet_type masked = to_send->masked();
+    switch(masked) {
+    case mqtt::packet_type::PUBLISH:
+        if(to_send->qos() == 0) {
+            delete to_send;
+            break;
+        }
+        if(!to_send->dup()) {
+            m_send_quota--;
+            info("m_send_quota is now: %d\n", m_send_quota);
+        }
+    case mqtt::packet_type::PUBREC:
+    case mqtt::packet_type::PUBREL:
+    case mqtt::packet_type::SUBSCRIBE:
+    case mqtt::packet_type::UNSUBSCRIBE:
+    case mqtt::packet_type::PINGREQ:
+        m_unacked_sends.push({now, to_send});
+        break;
+    case mqtt::packet_type::DISCONNECT:
+        m_state = state::disconnected;
+    case mqtt::packet_type::CONNECT:
+        // Send connects and disconnects ASAP
+        m_tcp->flush();
+    default:
+        delete to_send;
+    }
+    std::string packet_name = packet_type_string(masked);
+    info("Sending %.*s packet\n", packet_name.size(), packet_name.data());
+}
+
+void mqtt::client::recv_packet() {
+    info1("mqtt::client::recv_packet: Handling packet\n");
+    packet* recved = m_recv_queue.front();
+    m_recv_queue.pop();
+    mqtt::packet_type masked = recved->masked();
+    switch(masked) {
+    case mqtt::packet_type::CONNECT:
+        handle_connect(recved);
+        break;
+    case mqtt::packet_type::CONNACK:
+        handle_connack(recved);
+        break;
+    case mqtt::packet_type::PUBLISH:
+        handle_publish(recved);
+        break;
+    case mqtt::packet_type::PUBACK:
+        handle_puback(recved);
+        break;
+    case mqtt::packet_type::PUBREC:
+        handle_pubrec(recved);
+        break;
+    case mqtt::packet_type::PUBREL:
+        handle_pubrel(recved);
+        break;
+    case mqtt::packet_type::PUBCOMP:
+        handle_pubcomp(recved);
+        break;
+    case mqtt::packet_type::SUBSCRIBE:
+        handle_subscribe(recved);
+        break;
+    case mqtt::packet_type::SUBACK:
+        handle_suback(recved);
+        break;
+    case mqtt::packet_type::UNSUBSCRIBE:
+        handle_unsubscribe(recved);
+        break;
+    case mqtt::packet_type::UNSUBACK:
+        handle_unsuback(recved);
+        break;
+    case mqtt::packet_type::PINGREQ:
+        handle_pingreq(recved);
+        break;
+    case mqtt::packet_type::PINGRESP:
+        handle_pingresp(recved);
+        break;
+    case mqtt::packet_type::DISCONNECT:
+        handle_disconnect(recved);
+        break;
+    case mqtt::packet_type::AUTH:
+        handle_auth(recved);
+        break;
+    }
+}
+
+void mqtt::client::resend_first_unacked() {
+    auto[timestamp, unacked] = m_unacked_sends.front();
+    m_unacked_sends.pop();
+    if(unacked->masked() == mqtt::packet_type::PUBLISH) {
+        unacked->dup(true);
+    }
+    info("Resending unacked packet, last sent at %d\n", timestamp);
+    m_send_queue.push(unacked);
 }
 
 mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
@@ -476,9 +524,14 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
 
     std::vector<const property*> client_id = ack.properties()[property_name::CLIENT_ID];
     if(client_id.size() == 1) {
-        debug1("Setting client ID from properties...\n");
-        dump_bytes_debug((uint8_t*)client_id[0]->as_string().data(), client_id[0]->as_string().size());
         m_client_id = client_id[0]->as_string();
+        debug("mqtt::client::handle_connack: Set client ID from properties: %.*s\n", m_client_id.size(), (char*)m_client_id.data());
+    }
+
+    std::vector<const property*> server_keep_alive = ack.properties()[property_name::KEEP_ALIVE];
+    if(server_keep_alive.size() == 1) {
+        m_keep_alive = server_keep_alive[0]->as_twobyte();
+        debug("mqtt::client::handle_connack: Set keep alive to %d seconds\n", m_keep_alive);
     }
 
     if(ack.reason() == reason_code::SUCCESS && m_state == state::connecting) {
@@ -486,6 +539,7 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
         info("MQTT connected with client id '%.*s'\n\tMax QoS:  %d\n\tRecv Max: %d\n", m_client_id.size(), m_client_id.data(), m_max_qos, m_send_quota);
         m_user_connected();
     } else {
+        error("MQTT connection rejected by server: %.*s\n", reason_string(ack.reason(), ack.type()).size(), reason_string(ack.reason(), ack.type()).data());
         m_state = state::disconnecting;
     }
     delete packet;
@@ -763,6 +817,10 @@ void mqtt::client::tcp_send_callback(uint16_t len) {
 void mqtt::client::tcp_closed_callback() {
     debug1("mqtt::client::tcp_closed_callback\n");
     cancel_repeating_timer(&queue_timer);
+    // Finish up the packet queue to get the disconnect/connack packets with the disconnect reason
+    while(m_recv_queue.size() > 0) {
+        recv_packet();
+    }
 }
 
 void mqtt::client::tcp_error_callback(err_t err) {

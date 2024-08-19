@@ -58,7 +58,7 @@ mqtt::packet_type mqtt::publish_packet::type() const {
     if(!m_packet) {
         return mqtt::packet_type::UNDEFINED;
     }
-    return m_packet->m_type;
+    return m_packet->masked();
 }
 
 mqtt::varint_t mqtt::publish_packet::length() const {
