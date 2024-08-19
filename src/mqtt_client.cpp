@@ -267,7 +267,7 @@ void mqtt::client::handle_packet_queues() {
         case mqtt::packet_type::SUBSCRIBE:
         case mqtt::packet_type::UNSUBSCRIBE:
         case mqtt::packet_type::PINGREQ:
-            m_unacked_sends.push({to_ms_since_boot(get_absolute_time()), to_send});
+            m_unacked_sends.push({now, to_send});
             break;
         case mqtt::packet_type::DISCONNECT:
             m_state = state::disconnected;
@@ -333,6 +333,7 @@ void mqtt::client::handle_packet_queues() {
             break;
         }
     }
+
     if(m_tcp->connected() && m_unacked_sends.size() > 0 && ((m_unacked_sends.front().first > now) || ((now - m_unacked_sends.front().first) > 30000))) {
         auto[timestamp, unacked] = m_unacked_sends.front();
         m_unacked_sends.pop();
