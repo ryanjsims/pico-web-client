@@ -346,6 +346,7 @@ void mqtt::client::handle_packet_queues() {
 }
 
 mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
+    debug("mqtt::client::get_unacked: Looking for unacked %.*s packet with id 0x%04X\n", packet_type_string(type).size(), packet_type_string(type).data(), packet_id);
     mqtt::packet* to_return = nullptr;
     for(uint i = 0; i < m_unacked_sends.size(); i++) {
         std::pair<uint32_t, mqtt::packet*> unacked = m_unacked_sends.front();
