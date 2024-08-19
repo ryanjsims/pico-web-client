@@ -388,6 +388,7 @@ mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
                 break;
             }
             if(packet_id == unacked_id && to_return == nullptr) {
+                debug("mqtt::client::get_unacked: Found %.*s packet with matching id!\n", packet_type_string(unacked.second->masked()).size(), packet_type_string(unacked.second->masked()).data());
                 to_return = unacked.second;
             } else {
                 m_unacked_sends.push(unacked);
@@ -395,6 +396,9 @@ mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
         } else {
             m_unacked_sends.push(unacked);
         }
+    }
+    if(to_return == nullptr) {
+        warn("mqtt::client::get_unacked: Failed to find unacked %.*s packet with id 0x%04X\n", packet_type_string(type).size(), packet_type_string(type).data(), packet_id);
     }
     return to_return;
 }
