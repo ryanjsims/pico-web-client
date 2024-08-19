@@ -245,6 +245,7 @@ mqtt::packet* mqtt::client::get_next_packet() {
 
 void mqtt::client::handle_packet_queues() {
     packet* to_send;
+    uint32_t now = to_ms_since_boot(get_absolute_time());
     if(m_tcp->connected() && m_send_queue.size() > 0 && (to_send = get_next_packet())) {
         std::span<uint8_t> data = to_send->serialize();
         dump_bytes_debug(data.data(), data.size());
@@ -257,14 +258,16 @@ void mqtt::client::handle_packet_queues() {
                 delete to_send;
                 break;
             }
-            m_send_quota--;
-            info("m_send_quota is now: %d\n", m_send_quota);
+            if(!to_send->dup()) {
+                m_send_quota--;
+                info("m_send_quota is now: %d\n", m_send_quota);
+            }
         case mqtt::packet_type::PUBREC:
         case mqtt::packet_type::PUBREL:
         case mqtt::packet_type::SUBSCRIBE:
         case mqtt::packet_type::UNSUBSCRIBE:
         case mqtt::packet_type::PINGREQ:
-            m_unacked_sends.push(to_send);
+            m_unacked_sends.push({to_ms_since_boot(get_absolute_time()), to_send});
             break;
         case mqtt::packet_type::DISCONNECT:
             m_state = state::disconnected;
@@ -330,38 +333,47 @@ void mqtt::client::handle_packet_queues() {
             break;
         }
     }
+    if(m_tcp->connected() && m_unacked_sends.size() > 0 && ((m_unacked_sends.front().first > now) || ((now - m_unacked_sends.front().first) > 30000))) {
+        auto[timestamp, unacked] = m_unacked_sends.front();
+        m_unacked_sends.pop();
+        if(unacked->masked() == mqtt::packet_type::PUBLISH) {
+            unacked->dup(true);
+        }
+        info("Resending unacked packet, last sent at %d\n", timestamp);
+        m_send_queue.push(unacked);
+    }
 }
 
 mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
     mqtt::packet* to_return = nullptr;
     for(uint i = 0; i < m_unacked_sends.size(); i++) {
-        mqtt::packet* unacked = m_unacked_sends.front();
+        std::pair<uint32_t, mqtt::packet*> unacked = m_unacked_sends.front();
         m_unacked_sends.pop();
-        if(unacked->masked() == type) {
+        if(unacked.second->masked() == type) {
             uint16_t unacked_id;
             switch(type) {
             case packet_type::PUBLISH:{
-                publish_packet pub(unacked);
+                publish_packet pub(unacked.second);
                 unacked_id = *pub.id();
                 break;
             }
             case packet_type::PUBREC:{
-                pubrec_packet rec(unacked);
+                pubrec_packet rec(unacked.second);
                 unacked_id = rec.id();
                 break;
             }
             case packet_type::PUBREL:{
-                pubrel_packet rel(unacked);
+                pubrel_packet rel(unacked.second);
                 unacked_id = rel.id();
                 break;
             }
             case packet_type::SUBSCRIBE:{
-                subscribe_packet sub(unacked);
+                subscribe_packet sub(unacked.second);
                 unacked_id = sub.id();
                 break;
             }
             case packet_type::UNSUBSCRIBE:{
-                unsubscribe_packet unsub(unacked);
+                unsubscribe_packet unsub(unacked.second);
                 unacked_id = unsub.id();
                 break;
             }
@@ -374,7 +386,7 @@ mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
                 break;
             }
             if(packet_id == unacked_id && to_return == nullptr) {
-                to_return = unacked;
+                to_return = unacked.second;
             } else {
                 m_unacked_sends.push(unacked);
             }
@@ -387,19 +399,19 @@ mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
 
 void mqtt::client::clear_unacked() {
     while(m_unacked_sends.size() > 0) {
-        delete m_unacked_sends.front();
+        delete m_unacked_sends.front().second;
         m_unacked_sends.pop();
     }
 }
 
 void mqtt::client::resend_reconnect() {
     for(uint i = 0; i < m_unacked_sends.size(); i++) {
-        mqtt::packet* unacked = m_unacked_sends.front();
+        std::pair<uint32_t, mqtt::packet*> unacked = m_unacked_sends.front();
         m_unacked_sends.pop();
-        switch(unacked->masked()) {
+        switch(unacked.second->masked()) {
         case packet_type::PUBLISH:
         case packet_type::PUBREL:
-            m_send_queue.push(unacked);
+            m_send_queue.push(unacked.second);
             break;
         default:
             m_unacked_sends.push(unacked);

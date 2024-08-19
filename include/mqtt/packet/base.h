@@ -100,6 +100,8 @@ namespace mqtt {
         std::span<uint8_t> serialize();
         const std::span<uint8_t> contents();
         uint8_t qos();
+        bool dup();
+        void dup(bool);
         varint_t size() { return {m_count}; }
 
         packet_type masked() const {

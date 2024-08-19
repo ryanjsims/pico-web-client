@@ -168,3 +168,16 @@ uint8_t mqtt::packet::qos() {
         return 0;
     }
 }
+
+bool mqtt::packet::dup() {
+    if(masked() == mqtt::packet_type::PUBLISH) {
+        return (uint8_t)m_type & (1 << 3);
+    }
+    return false;
+}
+
+void mqtt::packet::dup(bool to_set) {
+    if(masked() == mqtt::packet_type::PUBLISH) {
+        m_type = (mqtt::packet_type)(to_set ? ((uint8_t)m_type | (1 << 3)) : ((uint8_t)m_type & ~(1 << 3)));
+    }
+}
