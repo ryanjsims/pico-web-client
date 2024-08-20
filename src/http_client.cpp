@@ -181,7 +181,7 @@ void http_client::send_request() {
         m_current_request.add_header("Content-Length", std::to_string(m_current_request.body_.size()));
     }
     m_current_response.clear();
-    if(m_current_response.request == nullptr) {
+    if(m_current_response.m_request == nullptr) {
         m_current_response = http_response(&m_current_request);
     }
     trace1("http_client::send_request Adding callbacks\n");
@@ -242,7 +242,7 @@ void http_client::tcp_recv_callback() {
     std::span<uint8_t> span = {(uint8_t*)data, (size_t)m_tcp->available()};
     m_tcp->read(span);
     #if LOG_LEVEL <= LOG_LEVEL_DEBUG
-    if(m_current_response.state != http_response::parse_state::body || m_current_response.type != http_response::content_type::binary) {
+    if(m_current_response.m_state != http_response::parse_state::body || m_current_response.m_type != http_response::content_type::binary) {
         std::string_view string = {(char*)span.data(), span.size()};
         size_t max_size = string.find("\r\n\r\n");
         if(max_size == std::string_view::npos) {
@@ -255,7 +255,7 @@ void http_client::tcp_recv_callback() {
     }
     #endif
     m_current_response.parse(span);
-    m_response_ready = m_current_response.state == http_response::parse_state::done;
+    m_response_ready = m_current_response.m_state == http_response::parse_state::done;
     if(m_response_ready) {
         m_tcp->on_receive([](){});
         m_user_response_callback();

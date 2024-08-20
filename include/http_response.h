@@ -43,18 +43,19 @@ public:
     void clear();
 
 private:
-    uint16_t status_code;
-    int content_length = -1, body_start = 0;
-    std::string_view protocol, status_text, body;
+    uint16_t m_status_code;
+    int m_content_length = -1, m_body_start = 0;
+    std::string_view m_protocol, m_status_text, m_body;
 #ifndef HTTP_STATIC_SIZE
-    uint8_t* data;
+    uint8_t* m_data;
 #else
-    uint8_t data[HTTP_DEFAULT_CAPACITY];
+    uint8_t m_data[HTTP_DEFAULT_CAPACITY];
 #endif
-    uint32_t index, capacity;
-    std::map<std::string, std::string_view> headers;
-    parse_state state;
-    content_type type;
-    const http_request *request = nullptr;
+    uint32_t m_index, m_capacity;
+    std::map<std::string, std::string_view> m_headers;
+    parse_state m_state;
+    content_type m_type;
+    mode m_mode;
+    const http_request *m_request = nullptr;
     bool only_parse_headers();
 };
