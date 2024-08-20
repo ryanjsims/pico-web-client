@@ -37,6 +37,9 @@ http_response::~http_response() {
 
 http_response &http_response::operator=(http_response&& moved) {
     trace1("http_response move assignment operator entered\n");
+    if(this->data) {
+        free(this->data);
+    }
     this->data = std::move(moved.data);
     this->request = moved.request;
     this->state = moved.state;
