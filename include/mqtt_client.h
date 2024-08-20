@@ -72,6 +72,7 @@ namespace mqtt {
         void publish(std::u8string topic, publish_packet::flags_t flags, std::u8string content_type, std::span<uint8_t> data);
 
         bool connected();
+        bool disconnected();
 
     private:
         enum class state {

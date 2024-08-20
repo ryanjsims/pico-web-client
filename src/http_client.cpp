@@ -251,15 +251,7 @@ void http_client::tcp_recv_callback() {
         debug("http_client recv'd:\n%.*s\n", max_size, (char*)span.data());
     } else {
         debug("http_client recv'd %d bytes\n", span.size());
-        for (uint32_t i = 0; i < span.size() && i < MAX_RECV_BYTE_OUTPUT;) {
-            if ((i & 0x0f) == 0 && i != 0) {
-                debug_cont1("\n");
-            } else if ((i & 0x07) == 0 && i != 0) {
-                debug_cont1(" ");
-            }
-            debug_cont("%02x ", span[i++]);
-        }
-        debug_cont1("\n");
+        dump_bytes_debug(span.data(), MAX_RECV_BYTE_OUTPUT);
     }
     #endif
     m_current_response.parse(span);

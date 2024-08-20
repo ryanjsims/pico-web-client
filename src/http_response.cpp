@@ -136,7 +136,7 @@ void http_response::parse_line(std::string_view line) {
         token_end = line.find(": ");
         std::string key(line.begin(), token_end);
         std::string_view value(line.begin() + token_end + 2, line.end());
-        debug("        %s: %s\n", key.c_str(), std::string(value).c_str());
+        debug("        %.*s: %.*s\n", key.size(), key.data(), value.size(), value.data());
         headers[key] = value;
         if(iequals(key, "Content-Length")) {
             std::from_chars(line.begin() + token_end + 2, line.end(), content_length);
@@ -154,7 +154,7 @@ void http_response::parse_line(std::string_view line) {
     }
     case parse_state::body:
         if(type != content_type::binary) {
-            debug("Parsing body:\n%s\n", std::string(line).c_str());
+            debug("Parsing body:\n%.*s\n", line.size(), line.data());
         } else {
             debug("Parsing body:\n(binary length %d)\n", line.size());
         }
@@ -202,6 +202,7 @@ void http_response::add_data(std::span<uint8_t> data) {
         this->data = (uint8_t*)realloc(this->data, index + data.size() + 512);
         if(this->data == nullptr) {
             error("http_response::add_data: reallocating data to size %d failed!\n", index + data.size() + 512);
+            // TODO: do something in response besides just panic'ing - alert the client of the failure or something
             panic("http_response::add_data: reallocating data to size %d failed!\n", index + data.size() + 512);
         }
         capacity = index + data.size() + 512;

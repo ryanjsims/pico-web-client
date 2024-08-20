@@ -177,6 +177,10 @@ bool mqtt::client::connected() {
     return m_state == state::connected;
 }
 
+bool mqtt::client::disconnected() {
+    return m_state == state::disconnected;
+}
+
 uint16_t mqtt::client::generate_packet_id() {
     critical_section_enter_blocking(&generate_id_section);
     uint16_t to_return = m_current_packet_id;
@@ -325,15 +329,15 @@ void mqtt::client::send_packet(mqtt::packet* to_send) {
     default:
         delete to_send;
     }
-    std::string packet_name = packet_type_string(masked);
-    info("Sending %.*s packet\n", packet_name.size(), packet_name.data());
+    info("Sending %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
 }
 
 void mqtt::client::recv_packet() {
-    info1("mqtt::client::recv_packet: Handling packet\n");
+    debug1("mqtt::client::recv_packet: Handling packet\n");
     packet* recved = m_recv_queue.front();
     m_recv_queue.pop();
     mqtt::packet_type masked = recved->masked();
+    info("Received %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
     switch(masked) {
     case mqtt::packet_type::CONNECT:
         handle_connect(recved);
@@ -803,8 +807,6 @@ void mqtt::client::tcp_recv_callback() {
         return;
     }
     m_recv_queue.push(received);
-    std::string packet_name = packet_type_string(received->masked());
-    info("Received %.*s packet\n", packet_name.size(), packet_name.data());
 }
 
 void mqtt::client::tcp_send_callback(uint16_t len) {
