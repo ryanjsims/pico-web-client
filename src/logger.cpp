@@ -39,6 +39,9 @@ void __dump_ascii_debug(const uint8_t *bptr, uint start, uint end) {
 }
 
 void dump_bytes_info(const uint8_t *bptr, uint32_t len) {
+    if(LOG_LEVEL > LOG_LEVEL_INFO) {
+        return;
+    }
     unsigned int i = 0, line_start = 0;
     info("Dumping %d bytes - 0x%08x to 0x%08x", len, bptr, bptr+len);
     for (i = 0; i < len;) {
@@ -60,6 +63,9 @@ void dump_bytes(const uint8_t *bptr, uint32_t len) {
 }
 
 void dump_bytes_debug(const uint8_t *bptr, uint32_t len) {
+    if(LOG_LEVEL > LOG_LEVEL_DEBUG) {
+        return;
+    }
     unsigned int i = 0, line_start = 0;
     debug("Dumping %d bytes - 0x%08x to 0x%08x", len, bptr, bptr+len);
     for (i = 0; i < len;) {
