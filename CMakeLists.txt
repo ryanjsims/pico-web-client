@@ -20,6 +20,8 @@ add_library(pico_web_client
     src/udp_client.cpp
     src/ntp_client.cpp
     src/circular_buffer.cpp
+    src/circular_iterator.cpp
+    src/circular_view.cpp
     src/http_request.cpp
     src/http_response.cpp
     src/http_client.cpp

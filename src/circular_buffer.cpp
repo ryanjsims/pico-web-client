@@ -85,55 +85,13 @@ void circular_buffer<T, count>::advance(size_t amount) {
 }
 
 template <class T, size_t count>
-circular_buffer<T, count>::iterator circular_buffer<T, count>::begin() const {
-    return iterator(const_cast<unsigned char*>(buf_), tail_, max_size_);
+circular_iterator<T> circular_buffer<T, count>::begin() const {
+    return circular_iterator<T>(const_cast<unsigned char*>(buf_), tail_, max_size_);
 }
 
 template <class T, size_t count>
-circular_buffer<T, count>::iterator circular_buffer<T, count>::end() const {
-    return iterator(const_cast<unsigned char*>(buf_), head_ + 1, max_size_);
-}
-
-template <class T, size_t count>
-circular_buffer<T, count>::iterator::iterator(pointer ptr, size_t index, size_t max_size): ptr_(ptr), index_(index), max_size_(max_size) {}
-
-template <class T, size_t count>
-circular_buffer<T, count>::iterator::reference circular_buffer<T, count>::iterator::operator*() const {
-    return ptr_[index_ % max_size_];
-}
-
-template <class T, size_t count>
-circular_buffer<T, count>::iterator::pointer circular_buffer<T, count>::iterator::operator->() {
-    return &ptr_[index_ % max_size_];
-}
-
-template <class T, size_t count>
-circular_buffer<T, count>::iterator& circular_buffer<T, count>::iterator::operator++() {
-    index_++;
-    return *this;
-}
-
-template <class T, size_t count>
-circular_buffer<T, count>::iterator circular_buffer<T, count>::iterator::operator++(int) {
-    iterator tmp = *this;
-    index_++;
-    return tmp;
-}
-
-template <class T, size_t count>
-circular_buffer<T, count>::iterator circular_buffer<T, count>::iterator::operator+(int rhs) {
-    iterator tmp(ptr_, index_ + rhs, max_size_);
-    return tmp;
-}
-
-template <class T, size_t count>
-bool circular_buffer<T, count>::iterator::operator==(const iterator& rhs) {
-    return ((std::ptrdiff_t)(ptr_ + index_) % max_size_) == ((std::ptrdiff_t)(rhs.ptr_ + rhs.index_) % max_size_);
-}
-
-template <class T, size_t count>
-bool circular_buffer<T, count>::iterator::operator!=(const iterator& rhs) {
-    return !(*this == rhs);
+circular_iterator<T> circular_buffer<T, count>::end() const {
+    return circular_iterator<T>(const_cast<unsigned char*>(buf_), head_ + 1, max_size_);
 }
 
 template class circular_buffer<uint8_t, 2048>;
