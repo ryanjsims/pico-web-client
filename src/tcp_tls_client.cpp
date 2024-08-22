@@ -64,7 +64,9 @@ int tcp_tls_client::available() const {
 }
 
 size_t tcp_tls_client::read(std::span<uint8_t> out) {
-    return buffer.get(out);
+    size_t bytes_read = buffer.get(out);
+    altcp_recved(tcp_controlblock, bytes_read);
+    return bytes_read;
 }
 
 bool tcp_tls_client::connected() const {
@@ -220,7 +222,6 @@ err_t tcp_tls_client::recv_callback(void* arg, altcp_pcb* pcb, pbuf* p, err_t er
             #endif
             curr = curr->next;
         }
-        altcp_recved(pcb, count);
     }
     pbuf_free(p);
 

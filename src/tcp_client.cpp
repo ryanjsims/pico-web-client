@@ -61,7 +61,9 @@ int tcp_client::available() const {
 }
 
 size_t tcp_client::read(std::span<uint8_t> out) {
-    return buffer.get(out);
+    size_t bytes_read = buffer.get(out);
+    tcp_recved(tcp_controlblock, bytes_read);
+    return bytes_read;
 }
 
 bool tcp_client::write(std::span<const uint8_t> data) {
@@ -200,7 +202,6 @@ err_t tcp_client::recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err) {
             count += client->buffer.put({reinterpret_cast<uint8_t*>(curr->payload), curr->len});
             curr = curr->next;
         }
-        tcp_recved(pcb, count);
     }
     pbuf_free(p);
 
