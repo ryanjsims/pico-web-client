@@ -21,7 +21,7 @@ public:
 
     void url(std::string new_url);
 
-    void get(std::string target, std::string body = "");
+    void get(std::string target, std::string body = "", bool stream = false);
     void post(std::string target, std::string body = "");
     void put(std::string target, std::string body = "");
     void patch(std::string target, std::string body = "");
@@ -31,7 +31,7 @@ public:
 
     void header(std::string key, std::string value);
 
-    void send_request(std::string method, std::string target, std::string body = "");
+    void send_request(std::string method, std::string target, std::string body = "", bool stream = false);
 
     void resend_request() {
         send_request();
@@ -54,8 +54,18 @@ public:
         return m_current_response;
     }
 
+    http_response &streaming_response() {
+        if(m_current_response.get_mode() != http_response::mode::streaming) {
+            panic("http_client: Tried to get streaming response when in buffered mode!\n");
+        }
+        return m_current_response;
+    }
+
     void on_response(std::function<void()> callback) {
         m_user_response_callback = callback;
+    }
+    void on_stream(std::function<void()> callback) {
+        m_user_stream_callback = callback;
     }
     void on_close(std::function<void()> callback) {
         m_user_closed_callback = callback;
@@ -76,14 +86,14 @@ public:
 
 private:
     tcp_base *m_tcp;
-    bool m_response_ready = false, m_request_sent = false, m_has_error = false;
+    bool m_response_ready = false, m_request_sent = false, m_has_error = false, m_streaming = false;
     http_request m_current_request;
     http_response m_current_response;
     std::string m_host, m_url;
     std::span<uint8_t> m_cert;
     int m_port;
     LUrlParser::ParseURL m_url_parser;
-    std::function<void()> m_user_response_callback, m_user_closed_callback;
+    std::function<void()> m_user_response_callback, m_user_stream_callback, m_user_closed_callback;
     std::function<void(err_t)> m_user_error_callback;
     uint32_t m_timeout_ms;
     alarm_id_t m_timeout_alarm;

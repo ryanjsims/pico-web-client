@@ -11,6 +11,7 @@ http_client::http_client(std::string url, std::span<uint8_t> cert)
     , m_cert(cert)
     , m_tcp(nullptr)
     , m_user_response_callback([](){})
+    , m_user_stream_callback([](){})
     , m_user_closed_callback([](){})
     , m_user_error_callback([](err_t){})
     , m_timeout_alarm(0)
@@ -92,8 +93,8 @@ bool http_client::parse_url() {
     return true;
 }
 
-void http_client::get(std::string target, std::string body) {
-    send_request("GET", target, body);
+void http_client::get(std::string target, std::string body, bool stream) {
+    send_request("GET", target, body, stream);
 }
 
 void http_client::post(std::string target, std::string body) {
@@ -130,7 +131,7 @@ void http_client::header(std::string key, std::string value) {
     trace1("http_client::header exited\n");
 }
 
-void http_client::send_request(std::string method, std::string target, std::string body) {
+void http_client::send_request(std::string method, std::string target, std::string body, bool stream) {
     trace("http_client::send_request entered with:\n    method '%.*s'\n    target '%.*s'\n    body '%.*s'\n", method.size(), method.data(), target.size(), target.data(), body.size(), body.data());
     if(m_request_sent) {
         m_current_request.clear();
@@ -140,6 +141,7 @@ void http_client::send_request(std::string method, std::string target, std::stri
     m_current_request.target_ = target;
     m_current_request.body_ = body;
     m_current_request.ready_ = true;
+    m_streaming = stream;
     send_request();
     trace1("http_client::send_request exited\n");
 }
@@ -182,8 +184,9 @@ void http_client::send_request() {
     }
     m_current_response.clear();
     if(m_current_response.m_request == nullptr) {
-        m_current_response = http_response(&m_current_request);
+        m_current_response.m_request = &m_current_request;
     }
+    m_current_response.set_mode(m_streaming ? http_response::mode::streaming : http_response::mode::buffered);
     trace1("http_client::send_request Adding callbacks\n");
     m_tcp->on_receive(std::bind(&http_client::tcp_recv_callback, this));
     m_tcp->on_closed(std::bind(&http_client::tcp_closed_callback, this));
@@ -238,27 +241,45 @@ void http_client::tcp_recv_callback() {
         cancel_alarm(m_timeout_alarm);
         m_timeout_alarm = 0;
     }
-    uint8_t data[m_tcp->available()];
-    std::span<uint8_t> span = {(uint8_t*)data, (size_t)m_tcp->available()};
-    m_tcp->read(span);
-    #if LOG_LEVEL <= LOG_LEVEL_DEBUG
-    if(m_current_response.m_state != http_response::parse_state::body || m_current_response.m_type != http_response::content_type::binary) {
-        std::string_view string = {(char*)span.data(), span.size()};
-        size_t max_size = string.find("\r\n\r\n");
-        if(max_size == std::string_view::npos) {
-            max_size = span.size();
+    if(m_current_response.get_mode() != http_response::mode::streaming || m_current_response.m_state != http_response::parse_state::body) {
+        uint8_t data[m_tcp->available()];
+        std::span<uint8_t> span = {(uint8_t*)data, (size_t)m_tcp->available()};
+        m_tcp->read(span);
+        #if LOG_LEVEL <= LOG_LEVEL_DEBUG
+        if(m_current_response.m_state != http_response::parse_state::body || m_current_response.m_type != http_response::content_type::binary) {
+            std::string_view string = {(char*)span.data(), span.size()};
+            size_t max_size = string.find("\r\n\r\n");
+            if(max_size == std::string_view::npos) {
+                max_size = span.size();
+            }
+            debug("http_client recv'd:\n%.*s\n", max_size, (char*)span.data());
+        } else {
+            debug("http_client recv'd %d bytes\n", span.size());
+            dump_bytes_debug(span.data(), MAX_RECV_BYTE_OUTPUT);
         }
-        debug("http_client recv'd:\n%.*s\n", max_size, (char*)span.data());
+        #endif
+        m_current_response.parse(span);
+        m_response_ready = m_current_response.m_state == http_response::parse_state::done;
+        if(m_response_ready) {
+            m_tcp->on_receive([](){});
+            m_user_response_callback();
+        }
     } else {
-        debug("http_client recv'd %d bytes\n", span.size());
-        dump_bytes_debug(span.data(), MAX_RECV_BYTE_OUTPUT);
-    }
-    #endif
-    m_current_response.parse(span);
-    m_response_ready = m_current_response.m_state == http_response::parse_state::done;
-    if(m_response_ready) {
-        m_tcp->on_receive([](){});
-        m_user_response_callback();
+        uint32_t size = MIN(m_current_response.capacity_remaining(), m_tcp->available());
+        if(size == 0) {
+            trace1("http_client::tcp_recv_callback exited, no data read\n");
+            return;
+        }
+        uint8_t data[MAX(size, 1)];
+        std::span<uint8_t> span = {(uint8_t*)data, (size_t)size};
+        m_tcp->read(span);
+        m_current_response.parse(span);
+        m_user_stream_callback();
+        m_response_ready = m_current_response.m_state == http_response::parse_state::done;
+        if(m_response_ready) {
+            m_tcp->on_receive([](){});
+            m_user_response_callback();
+        }
     }
     trace1("http_client::tcp_recv_callback exited\n");
 }
