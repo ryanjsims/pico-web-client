@@ -556,7 +556,7 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
         m_user_connected();
     } else {
         error("MQTT connection rejected by server: %.*s\n", reason_string(ack.reason(), ack.type()).size(), reason_string(ack.reason(), ack.type()).data());
-        m_state = state::disconnecting;
+        m_state = state::disconnected;
     }
     delete packet;
 }
@@ -823,7 +823,6 @@ void mqtt::client::tcp_recv_callback() {
 
 void mqtt::client::tcp_send_callback(uint16_t len) {
     if(m_state == state::disconnecting) {
-        m_state = state::disconnected;
         m_tcp->close(ERR_CLSD);
     }
 }
@@ -831,6 +830,7 @@ void mqtt::client::tcp_send_callback(uint16_t len) {
 void mqtt::client::tcp_closed_callback() {
     debug1("mqtt::client::tcp_closed_callback\n");
     cancel_repeating_timer(&queue_timer);
+    m_state = state::disconnected;
     // Finish up the packet queue to get the disconnect/connack packets with the disconnect reason
     while(m_recv_queue.size() > 0) {
         recv_packet();
@@ -839,6 +839,7 @@ void mqtt::client::tcp_closed_callback() {
 
 void mqtt::client::tcp_error_callback(err_t err) {
     debug1("mqtt::client::tcp_error_callback\n");
-    error("Got error: '%s'\n", tcp_perror(err).c_str());
+    error("Got error: '%.*s'\n", tcp_perror(err).size(), tcp_perror(err).data());
     cancel_repeating_timer(&queue_timer);
+    m_state = state::disconnected;
 }
