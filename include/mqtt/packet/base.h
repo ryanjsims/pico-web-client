@@ -121,6 +121,6 @@ namespace mqtt {
         uint8_t *data = nullptr;
         std::span<uint8_t> m_data;
         uint32_t m_count, m_capacity;
-        void expand_if_needed(uint32_t length_to_add);
+        bool expand_if_needed(uint32_t length_to_add);
     };
 };

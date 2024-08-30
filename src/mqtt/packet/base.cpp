@@ -274,17 +274,28 @@ mqtt::packet::~packet() {
     }
 }
 
-void mqtt::packet::expand_if_needed(uint32_t length_to_add) {
+bool mqtt::packet::expand_if_needed(uint32_t length_to_add) {
     if(data == nullptr) {
         m_capacity = 128;
         data = (uint8_t*)malloc(m_capacity);
+        if(data == nullptr) {
+            error1("mqtt::packet::expand_if_needed: Failed to allocate data\n");
+            m_data = {};
+            return false;
+        }
         trace("mqtt::packet::expand_if_needed: Created data %p with capacity 128\n", data);
     } else if((m_count + length_to_add) > m_capacity) {
         m_capacity = MAX(2 * m_capacity, m_count + length_to_add + 32);
-        data = (uint8_t*)realloc(data, m_capacity);
+        uint8_t* new_data = (uint8_t*)realloc(data, m_capacity);
+        if(new_data == nullptr) {
+            error1("mqtt::packet::expand_if_needed: Failed to reallocate data\n");
+            return false;
+        }
+        data = new_data;
         trace("mqtt::packet::expand_if_needed: Reallocated data %p with capacity %d\n", data, m_capacity);
     }
     m_data = {data + 5, m_capacity};
+    return true;
 }
 
 mqtt::packet& mqtt::packet::operator+=(const std::u8string& value) {
