@@ -331,7 +331,11 @@ void mqtt::client::send_packet(mqtt::packet* to_send) {
     default:
         delete to_send;
     }
-    info("Sending %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
+    if(masked != packet_type::PINGREQ) {
+        info("Sending %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
+    } else {
+        debug("Sending %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
+    }
 }
 
 void mqtt::client::recv_packet() {
@@ -339,7 +343,13 @@ void mqtt::client::recv_packet() {
     packet* recved = m_recv_queue.front();
     m_recv_queue.pop();
     mqtt::packet_type masked = recved->masked();
-    info("Received %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    m_last_recv_time = now;
+    if(masked != packet_type::PINGRESP) {
+        info("Received %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
+    } else {
+        debug("Received %.*s packet\n", packet_type_string(masked).size(), packet_type_string(masked).data());
+    }
     switch(masked) {
     case mqtt::packet_type::CONNECT:
         handle_connect(recved);
