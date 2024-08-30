@@ -106,7 +106,7 @@ namespace mqtt {
         std::span<uint8_t> m_cert, m_password;
         uint16_t m_current_packet_id;
         uint16_t m_keep_alive;
-        uint32_t m_last_send_time;
+        uint32_t m_last_send_time, m_last_recv_time;
         int m_port;
         state m_state;
         repeating_timer_t queue_timer;

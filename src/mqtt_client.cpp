@@ -293,8 +293,15 @@ void mqtt::client::handle_packet_queues() {
         // When we're 80% of the way to the keep alive time without sending
         // a packet, or if millisecond time has rolled over, enqueue a pingreq packet
         // m_keep_alive is in seconds, now and m_last_send_time are in milliseconds
-        pingreq_packet ping{};
-        m_send_queue.push(ping.release());
+        if(m_unacked_sends.size() > 0) {
+            resend_first_unacked();
+        } else {
+            pingreq_packet ping{};
+            m_send_queue.push(ping.release());
+        }
+    }
+    if(m_tcp->connected() && m_state == state::connected && m_keep_alive && (now > m_last_recv_time) && (now - m_last_recv_time) > (((uint32_t)m_keep_alive) * 1000)) {
+        disconnect(mqtt::reason_code::ERROR_TIMEOUT);
     }
 }
 
