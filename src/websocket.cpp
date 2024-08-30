@@ -2,6 +2,8 @@
 
 #include "lwip/ip_addr.h"
 
+#include <allocator.h>
+
 ws::websocket::websocket(tcp_base *socket)
     : tcp(socket)
     , user_receive_callback([](){})
@@ -179,4 +181,12 @@ bool ws::websocket::write_frame(std::span<uint8_t> data, opcodes opcode) {
     tcp->flush();
     debug("tcp->write result: %d\n", res);
     return res;
+}
+
+void* ws::websocket::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void ws::websocket::operator delete(void* ptr) {
+    web::free(ptr);
 }

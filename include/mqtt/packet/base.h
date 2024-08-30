@@ -97,6 +97,9 @@ namespace mqtt {
         packet& operator+=(varint_t);
         packet& operator+=(const properties&);
 
+        static void* operator new(std::size_t count);
+        static void operator delete(void* ptr);
+
         void add_raw(const std::span<uint8_t>&);
 
         std::span<uint8_t> serialize();

@@ -35,6 +35,9 @@ public:
     void read_initial_packet();
     void set_refresh_watchdog();
 
+    static void* operator new(std::size_t count);
+    static void operator delete(void* ptr);
+
 private:
     ws::websocket *m_socket;
     std::function<void()> m_user_receive_callback, m_user_open_callback, m_user_close_callback;

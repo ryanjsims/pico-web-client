@@ -6,6 +6,8 @@
 #include "lwip/dns.h"
 #include "lwip/tcp.h"
 
+#include <allocator.h>
+
 tcp_client::tcp_client()
     : port_(0)
     , connected_(false)
@@ -274,4 +276,12 @@ std::string tcp_perror(err_t err) {
     default:
         return "ERR not recognized!";
     }
+}
+
+void* tcp_client::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void tcp_client::operator delete(void* ptr) {
+    web::free(ptr);
 }

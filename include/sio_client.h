@@ -54,6 +54,9 @@ public:
     // Starts the sio_client main loop
     void run();
 
+    static void* operator new(std::size_t count);
+    static void operator delete(void* ptr);
+
 private:
     eio_client *m_engine;
     http_client *m_http;

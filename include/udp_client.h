@@ -30,6 +30,10 @@ public:
 
     void on_receive(std::function<void(const ip_addr_t *, uint16_t)> callback);
     void on_connect(std::function<void()> callback);
+
+    static void* operator new(std::size_t count);
+    static void operator delete(void* ptr);
+
 private:
     struct udp_pcb *udp_controlblock;
     ip_addr_t remote_addr;

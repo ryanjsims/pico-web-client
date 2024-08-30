@@ -1,5 +1,7 @@
 #include "sio_client.h"
 
+#include <allocator.h>
+
 #ifndef SIO_HTTP_TIMEOUT
 #define SIO_HTTP_TIMEOUT 30000
 #endif
@@ -206,7 +208,7 @@ void sio_client::http_error_callback(err_t reason) {
 
 void sio_client::engine_recv_callback() {
     debug1("sio_client::engine_recv_callback\n");
-    uint8_t* data = (uint8_t*)malloc(m_engine->packet_size());
+    uint8_t* data = (uint8_t*)web::malloc(m_engine->packet_size());
     if(data == nullptr) {
         error1("engine_recv_callback: Failed to allocate memory for packet!\n");
         return;
@@ -263,7 +265,7 @@ void sio_client::engine_recv_callback() {
         }
         break;
     }
-    free(data);
+    web::free(data);
 }
 
 void sio_client::engine_closed_callback() {
@@ -294,4 +296,12 @@ void sio_client::disconnect_engine(nlohmann::json disconnect_reason) {
         iter->second->update_engine(m_engine);
     }
     m_state = client_state::disconnected;
+}
+
+void* sio_client::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void sio_client::operator delete(void* ptr) {
+    return web::free(ptr);
 }

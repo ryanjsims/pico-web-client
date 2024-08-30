@@ -14,6 +14,7 @@ project(pico-web-client)
 pico_sdk_init()
 
 add_library(pico_web_client
+    src/allocator.cpp
     src/iequals.cpp
     src/tcp_client.cpp
     src/tcp_tls_client.cpp
@@ -113,6 +114,8 @@ target_compile_definitions(pico_mqtt_test PRIVATE
     "MQTT_USERNAME=\"$ENV{MQTT_USERNAME}\""
     "MQTT_PASSWORD=\"$ENV{MQTT_PASSWORD}\""
     "LOG_LEVEL=$ENV{LOG_LEVEL}"
+    "PICO_DEFAULT_UART_TX_PIN=12"
+    "PICO_DEFAULT_UART_RX_PIN=13"
 )
 target_link_options(pico_mqtt_test PRIVATE "-Wl,--print-memory-usage")
 

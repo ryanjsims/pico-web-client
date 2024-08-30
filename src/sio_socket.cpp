@@ -1,5 +1,7 @@
 #include "sio_socket.h"
 
+#include <allocator.h>
+
 sio_socket::sio_socket(eio_client *engine_ref, std::string ns)
     : m_namespace(ns)
     , m_engine(engine_ref)
@@ -71,4 +73,12 @@ void sio_socket::event_callback(nlohmann::json array) {
     if(event_handlers.find(event) != event_handlers.end()) {
         event_handlers[event](array);
     }
+}
+
+void* sio_socket::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void sio_socket::operator delete(void* ptr) {
+    return web::free(ptr);
 }

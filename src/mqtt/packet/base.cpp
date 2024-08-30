@@ -3,6 +3,8 @@
 #include "logger.h"
 #include <cstring>
 
+#include <allocator.h>
+
 std::string mqtt::packet_type_string(mqtt::packet_type type) {
     switch(type) {
         case packet_type::UNDEFINED:
@@ -243,7 +245,7 @@ const std::string mqtt::reason_string(mqtt::reason_code code, mqtt::packet_type 
 }
 
 mqtt::packet::packet(packet_type t) : m_type(t), m_length(0), m_count(0), m_capacity(32) {
-    data = (uint8_t*)malloc(m_capacity + 5);
+    data = (uint8_t*)web::malloc(m_capacity + 5);
     if(data == nullptr) {
         panic("mqtt::packet constructor: OOM when constructing minimal packet\n");
     }
@@ -254,7 +256,7 @@ mqtt::packet::packet(std::span<uint8_t> value) {
     m_type = (packet_type)value[0];
     m_length = varint_t{value.subspan(1)};
     debug("mqtt::packet constructor: Creating %.*s packet of size %d\n", packet_type_string(masked()).size(), packet_type_string(masked()).data(), m_length + 5);
-    data = (uint8_t*)malloc(m_length + 5);
+    data = (uint8_t*)web::malloc(m_length + 5);
     if(data == nullptr) {
         panic("mqtt::packet constructor: OOM when constructing packet\n");
     }
@@ -267,7 +269,7 @@ mqtt::packet::packet(std::span<uint8_t> value) {
 mqtt::packet::~packet() {
     debug("mqtt::packet destructor: Deleting %.*s packet\n", packet_type_string(masked()).size(), packet_type_string(masked()).data());
     if(data) {
-        free(data);
+        web::free(data);
         data = nullptr;
         m_count = 0;
         m_data = {};
@@ -277,7 +279,7 @@ mqtt::packet::~packet() {
 bool mqtt::packet::expand_if_needed(uint32_t length_to_add) {
     if(data == nullptr) {
         m_capacity = 128;
-        data = (uint8_t*)malloc(m_capacity);
+        data = (uint8_t*)web::malloc(m_capacity);
         if(data == nullptr) {
             error1("mqtt::packet::expand_if_needed: Failed to allocate data\n");
             m_data = {};
@@ -286,7 +288,7 @@ bool mqtt::packet::expand_if_needed(uint32_t length_to_add) {
         trace("mqtt::packet::expand_if_needed: Created data %p with capacity 128\n", data);
     } else if((m_count + length_to_add) > m_capacity) {
         m_capacity = MAX(2 * m_capacity, m_count + length_to_add + 32);
-        uint8_t* new_data = (uint8_t*)realloc(data, m_capacity);
+        uint8_t* new_data = (uint8_t*)web::realloc(data, m_capacity);
         if(new_data == nullptr) {
             error1("mqtt::packet::expand_if_needed: Failed to reallocate data\n");
             return false;
@@ -399,4 +401,12 @@ void mqtt::packet::dup(bool to_set) {
     if(masked() == mqtt::packet_type::PUBLISH) {
         m_type = (mqtt::packet_type)(to_set ? ((uint8_t)m_type | (1 << 3)) : ((uint8_t)m_type & ~(1 << 3)));
     }
+}
+
+void* mqtt::packet::operator new(std::size_t count) {
+    return web::malloc(count * sizeof(mqtt::packet));
+}
+
+void mqtt::packet::operator delete(void* ptr) {
+    web::free(ptr);
 }

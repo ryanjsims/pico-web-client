@@ -4,20 +4,22 @@
 #include "hardware/watchdog.h"
 #include "nlohmann/json.hpp"
 
+#include <allocator.h>
+
 class eio_packet {
 public:
     eio_packet()
         : m_capacity(256)
         , m_size(14)
     {
-        m_payload = (uint8_t*)malloc(m_capacity);
+        m_payload = (uint8_t*)web::malloc(m_capacity);
         memset(m_payload, ' ', m_size);
         m_payload[m_size] = 0;
     }
 
     ~eio_packet() {
         if(m_payload) {
-            free(m_payload);
+            web::free(m_payload);
             m_payload = nullptr;
         }
     }
@@ -26,7 +28,7 @@ public:
         if(m_size + rhs.size() >= m_capacity) {
             uint32_t power = log2(m_size + rhs.size());
             m_capacity = 1 << (power + 1);
-            m_payload = (uint8_t*)realloc(m_payload, m_capacity);
+            m_payload = (uint8_t*)web::realloc(m_payload, m_capacity);
             if(m_payload == nullptr) {
                 error("eio_packet: Failed to realloc payload to capacity %d!\n", m_capacity);
                 panic("Out of memory");
@@ -131,7 +133,7 @@ void eio_client::ws_recv_callback() {
     m_socket->read({(uint8_t*)&type, 1});
     switch(type) {
     case packet_type::open:{
-        uint8_t* packet = (uint8_t*)malloc(packet_size());
+        uint8_t* packet = (uint8_t*)web::malloc(packet_size());
         if(packet == nullptr) {
             error1("eio_client::ws_recv_callback: failed to allocate open packet data!\n");
             panic("Out of memory!\n");
@@ -144,7 +146,7 @@ void eio_client::ws_recv_callback() {
         info("EIO Open:\n    sid=%s\n    pingInterval=%d\n    pingTimeout=%d\n", m_sid.c_str(), m_ping_interval, m_ping_timeout);
         m_open = true;
         m_user_open_callback();
-        free(packet);
+        web::free(packet);
         break;
     }
 

@@ -19,6 +19,9 @@ public:
 
     void update_engine(eio_client *engine_ref);
 
+    static void* operator new(std::size_t count);
+    static void operator delete(void* ptr);
+
 private:
     sio_socket() = default;
     sio_socket(eio_client *engine_ref, std::string ns);

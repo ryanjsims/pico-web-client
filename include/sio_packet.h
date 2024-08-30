@@ -17,6 +17,9 @@ public:
     std::span<uint8_t> span() const;
     const char* c_str() const noexcept;
 
+    static void* operator new(std::size_t count);
+    static void operator delete(void* ptr);
+
 private:
     uint8_t* m_payload;
     size_t m_capacity, m_size;

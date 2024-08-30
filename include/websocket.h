@@ -52,6 +52,9 @@ namespace ws {
         void on_closed(std::function<void()> callback);
         void on_error(std::function<void(err_t)> callback);
 
+        static void* operator new(std::size_t count);
+        static void operator delete(void* ptr);
+
     private:
         tcp_base *tcp;
         std::function<void()> user_receive_callback, user_poll_callback, user_close_callback;

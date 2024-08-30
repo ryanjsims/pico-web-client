@@ -4,6 +4,8 @@
 
 #include "lwip/dns.h"
 
+#include <allocator.h>
+
 #include "hardware/structs/rosc.h"
 void dump_bytes(const uint8_t *bptr, uint32_t len);
 
@@ -262,4 +264,12 @@ void tcp_tls_client::err_callback(void* arg, err_t err) {
     error("TCP error: code %.*s\n", err_str.size(), err_str.data());
     client->clear_pcb();
     client->close(err);
+}
+
+void* tcp_tls_client::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void tcp_tls_client::operator delete(void* ptr) {
+    web::free(ptr);
 }

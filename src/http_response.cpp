@@ -7,6 +7,8 @@
 #include <string.h>
 #include <lwip/tcp.h>
 
+#include <allocator.h>
+
 http_response::http_response(http_request *request)
     : m_status_code(0)
     , m_state(parse_state::status_line)
@@ -17,7 +19,7 @@ http_response::http_response(http_request *request)
 {
     trace1("http_response ctor entered\n");
 #ifndef HTTP_STATIC_SIZE
-    m_data = (uint8_t*)malloc(m_capacity);
+    m_data = (uint8_t*)web::malloc(m_capacity);
     if(m_data == nullptr) {
         error1("http_response::http_response: could not allocate buffer\n");
     }
@@ -30,7 +32,7 @@ http_response::~http_response() {
 #ifndef HTTP_STATIC_SIZE
     if(m_data) {
         debug1("http_response::~http_response: Freeing data\n");
-        free(m_data);
+        web::free(m_data);
     }
 #endif
     trace1("http_response dtor exited\n");
@@ -40,7 +42,7 @@ http_response &http_response::operator=(http_response&& moved) {
     trace1("http_response move assignment operator entered\n");
 #ifndef HTTP_STATIC_SIZE
     if(this->m_data) {
-        free(this->m_data);
+        web::free(this->m_data);
     }
     this->m_data = std::move(moved.m_data);
 #endif
@@ -280,7 +282,7 @@ void http_response::add_data(std::span<uint8_t> data) {
         error("http_response: Cannot add data of length %d - would exceed static capacity of %d\n", data.size(), m_capacity);
         return;
 #else
-        this->m_data = (uint8_t*)realloc(this->m_data, m_index + data.size() + 512);
+        this->m_data = (uint8_t*)web::realloc(this->m_data, m_index + data.size() + 512);
         if(this->m_data == nullptr) {
             error("http_response::add_data: reallocating data to size %d failed!\n", m_index + data.size() + 512);
             // TODO: do something in response besides just panic'ing - alert the client of the failure or something

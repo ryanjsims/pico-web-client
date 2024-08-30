@@ -7,6 +7,8 @@
 #include "lwip/udp.h"
 #include "logger.h"
 
+#include <allocator.h>
+
 udp_client::udp_client()
     : initialized_(false)
     , connected_(false)
@@ -160,4 +162,12 @@ void udp_client::on_receive(std::function<void(const ip_addr_t*, uint16_t)> call
 
 void udp_client::on_connect(std::function<void()> callback) {
     user_connected_callback = callback;
+}
+
+void* udp_client::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void udp_client::operator delete(void* ptr) {
+    web::free(ptr);
 }

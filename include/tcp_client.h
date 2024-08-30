@@ -61,6 +61,9 @@ public:
         tcp_controlblock = nullptr;
     }
 
+    static void* operator new(std::size_t count);
+    static void operator delete(void* ptr);
+
 protected:
     struct tcp_pcb *tcp_controlblock;
     ip_addr_t remote_addr;
