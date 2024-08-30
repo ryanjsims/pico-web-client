@@ -21,14 +21,8 @@ tcp_client::tcp_client()
     , user_send_callback([](u16_t){})
     , user_error_callback([](err_t){})
 {
-    debug1("Initializing DNS...\n");
-    dns_init();
-    ip_addr_t dnsserver;
-    ip4addr_aton("1.1.1.1", &dnsserver);
-    dns_setserver(0, &dnsserver);
-    
     debug1("Initializing TCP Client\n");
-    initialized_ = init();
+    init();
 }
 
 tcp_client::~tcp_client() {
@@ -53,7 +47,8 @@ bool tcp_client::init() {
     tcp_sent(tcp_controlblock, sent_callback);
     tcp_recv(tcp_controlblock, recv_callback);
     tcp_err(tcp_controlblock, err_callback);
-    return true;
+    initialized_ = true;
+    return initialized_;
 }
 
 int tcp_client::available() const {
@@ -103,27 +98,38 @@ bool tcp_client::connect(ip_addr_t addr, uint16_t port) {
 bool tcp_client::connect(std::string addr, uint16_t port) {
     info("tcp_client::connect to %s:%d\n", addr.c_str(), port);
     err_t err = dns_gethostbyname(addr.c_str(), &remote_addr, dns_callback, this);
+    bool connected = false;
     port_ = port;
     if(err == ERR_OK) {
         debug1("No dns lookup needed\n");
-        err = connect();
+        connected = connect();
     } else if(err != ERR_INPROGRESS) {
         error("gethostbyname failed with error code %d\n", err);
         close(err);
         return false;
     }
 
-    return err == ERR_OK || err == ERR_INPROGRESS;
+    return (err == ERR_OK && connected) || err == ERR_INPROGRESS;
 }
 
 bool tcp_client::connect() {
     if(tcp_controlblock == nullptr) {
         initialized_ = init();
+        if(!initialized_) {
+            error1("tcp_client::connect: Failed to initialize TCP!\n");
+            return false;
+        }
+        info("Initialized TCP client during connect (initialized = %d)\n", initialized_);
     }
 
     cyw43_arch_lwip_begin();
     err_t err = tcp_connect(tcp_controlblock, &remote_addr, port_, connected_callback);
     cyw43_arch_lwip_end();
+
+    if(err != ERR_OK) {
+        std::string error_str = tcp_perror(err);
+        error("tcp_client::connect: failed with error %.*s\n", error_str.size(), error_str.data());
+    }
 
     return err == ERR_OK;
 }
@@ -131,7 +137,7 @@ bool tcp_client::connect() {
 err_t tcp_client::close(err_t reason) {
     err_t err = ERR_OK;
     if (tcp_controlblock != NULL) {
-        debug1("Connection closing...\n");
+        info1("tcp_client: Connection closing...\n");
         tcp_arg(tcp_controlblock, NULL);
         tcp_poll(tcp_controlblock, NULL, 0);
         tcp_sent(tcp_controlblock, NULL);

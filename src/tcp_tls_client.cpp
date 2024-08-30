@@ -143,6 +143,11 @@ bool tcp_tls_client::connect(std::string hostname, uint16_t port) {
         initialized_ = init();
     }
 
+    if(!initialized_) {
+        error1("tcp_tls_client::connect: Failed to initialize tcp pcb\n");
+        return false;
+    }
+
     debug1("Setting mbedtls hostname...\n");
     mbedtls_ssl_context* ssl_context = (mbedtls_ssl_context*)altcp_tls_context(tcp_controlblock);
     debug("ssl_context = %p\n", ssl_context);
@@ -150,23 +155,28 @@ bool tcp_tls_client::connect(std::string hostname, uint16_t port) {
     debug("mbedtls_ssl_set_hostname rc = %d\n", code);
 
     err_t err = dns_gethostbyname(hostname.c_str(), &remote_addr, dns_callback, this);
+    bool connected = false;
     port_ = port;
     if(err == ERR_OK) {
         debug1("No dns lookup needed\n");
-        err = connect();
+        connected = connect();
     } else if(err != ERR_INPROGRESS) {
-        error("gethostbyname failed with error code %d\n", err);
+        error("gethostbyname failed with error %.*s\n", tcp_perror(err).size(), tcp_perror(err).data());
         close(err);
         return false;
     }
 
-    return err == ERR_OK || err == ERR_INPROGRESS;
+    return (err == ERR_OK && connected) || err == ERR_INPROGRESS;
 }
 
 bool tcp_tls_client::connect() {
     cyw43_arch_lwip_begin();
     err_t err = altcp_connect(tcp_controlblock, &remote_addr, port_, connected_callback);
     cyw43_arch_lwip_end();
+
+    if(err != ERR_OK) {
+        error("tcp_tls_client::connect: failed with error %.*s\n", tcp_perror(err).size(), tcp_perror(err).data());
+    }
 
     return err == ERR_OK;
 }
@@ -186,8 +196,9 @@ err_t tcp_tls_client::connected_callback(void* arg, altcp_pcb* pcb, err_t err) {
     tcp_tls_client *client = (tcp_tls_client*)arg;
     debug1("tcp_tls_client::connected_callback\n");
     if(err != ERR_OK) {
-        std::string err_str = tcp_perror(err);
-        error("connect failed with error code %.*s\n", err_str.size(), err_str.data());
+        // Note in lwip docs - when a connection fails, the error callback is called
+        // so this should never be called
+        error("tcp_tls_client::connected_callback failed with error code %.*s\n", tcp_perror(err).size(), tcp_perror(err).data());
         return client->close(err);
     }
     client->connected_ = true;
@@ -244,6 +255,7 @@ err_t tcp_tls_client::sent_callback(void* arg, altcp_pcb* pcb, uint16_t len) {
     return ERR_OK;
 }
 
+// TCP PCB is already freed when we hit this callback
 void tcp_tls_client::err_callback(void* arg, err_t err) {
     tcp_tls_client *client = (tcp_tls_client*)arg;
     std::string err_str = tcp_perror(err);
