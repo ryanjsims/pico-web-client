@@ -224,7 +224,11 @@ int64_t http_client::timeout_callback(alarm_id_t alarm, void* user_data) {
 void http_client::tcp_connected_callback() {
     trace1("http_client::tcp_connected_callback entered\n");
     std::string serialized = m_current_request.serialize();
+    #if LOG_LEVEL <= LOG_LEVEL_DEBUG
     debug("http_client sending:\n%.*s\n", serialized.size(), serialized.data());
+    #elif LOG_LEVEL == LOG_LEVEL_INFO
+    info("%.*s %.*s\n", m_current_request.method_.size(), m_current_request.method_.data(), m_current_request.target_.size(), m_current_request.target_.data());
+    #endif
     m_tcp->write({(uint8_t*)serialized.data(), serialized.size()});
     m_request_sent = true;
     if(m_timeout_ms != 0) {
