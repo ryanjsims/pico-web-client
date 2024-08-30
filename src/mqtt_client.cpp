@@ -203,10 +203,11 @@ bool mqtt::client::parse_url() {
     }
 
     m_host = url_parser.host_;
+    int parser_port = -1;
     debug("mqtt_client::parse_url got host %.*s", m_host.size(), m_host.data());
     if(url_parser.port_.size() > 0) {
-        url_parser.getPort(&m_port);
-        debug_cont(":%d", m_port);
+        url_parser.getPort(&parser_port);
+        debug_cont(":%d", parser_port);
     }
     debug_cont1("\n");
 
@@ -220,8 +221,8 @@ bool mqtt::client::parse_url() {
             debug1("mqtt_client::parse_url creating new tcp_tls_client\n");
             m_tcp = new tcp_tls_client(m_cert);
         }
-        if(m_port == -1) {
-            m_port = MQTT_SECURE_PORT;
+        if(parser_port == -1) {
+            parser_port = MQTT_SECURE_PORT;
         }
     } else {
         if(m_tcp && m_tcp->secure()) {
@@ -233,10 +234,11 @@ bool mqtt::client::parse_url() {
             debug1("mqtt_client::parse_url creating new tcp_client\n");
             m_tcp = new tcp_client();
         }
-        if(m_port == -1) {
-            m_port = MQTT_PORT;
+        if(parser_port == -1) {
+            parser_port = MQTT_PORT;
         }
     }
+    m_port = parser_port;
     trace1("mqtt_client::parse_url exited\n");
     return true;
 }

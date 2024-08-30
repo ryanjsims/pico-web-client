@@ -55,10 +55,11 @@ bool http_client::parse_url() {
     }
 
     m_host = m_url_parser.host_;
+    int parser_port = -1;
     debug("http_client::parse_url got host %.*s", m_host.size(), m_host.data());
     if(m_url_parser.port_.size() > 0) {
-        m_url_parser.getPort(&m_port);
-        debug_cont(":%d", m_port);
+        m_url_parser.getPort(&parser_port);
+        debug_cont(":%d", parser_port);
     }
     debug_cont1("\n");
 
@@ -72,8 +73,8 @@ bool http_client::parse_url() {
             debug1("http_client::parse_url creating new tcp_tls_client\n");
             m_tcp = new tcp_tls_client(m_cert);
         }
-        if(m_port == -1) {
-            m_port = 443;
+        if(parser_port == -1) {
+            parser_port = 443;
         }
     } else {
         if(m_tcp && m_tcp->secure()) {
@@ -85,10 +86,11 @@ bool http_client::parse_url() {
             debug1("http_client::parse_url creating new tcp_client\n");
             m_tcp = new tcp_client();
         }
-        if(m_port == -1) {
-            m_port = 80;
+        if(parser_port == -1) {
+            parser_port = 80;
         }
     }
+    m_port = parser_port;
     trace1("http_client::parse_url exited\n");
     return true;
 }
