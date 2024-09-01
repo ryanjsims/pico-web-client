@@ -4,6 +4,8 @@
 #include "tcp_client.h"
 #include "tcp_tls_client.h"
 
+#include <allocator.h>
+
 http_client::http_client(std::string url, std::span<uint8_t> cert)
     : m_host("")
     , m_url(url)
@@ -33,6 +35,14 @@ http_client::~http_client() {
     }
     debug1("~http_client\n");
     trace1("http_client dtor exited\n");
+}
+
+void* http_client::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void http_client::operator delete(void* ptr) {
+    web::free(ptr);
 }
 
 void http_client::url(std::string new_url) {

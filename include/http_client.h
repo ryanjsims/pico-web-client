@@ -19,6 +19,9 @@ public:
     http_client& operator=(http_client&&) = default;
     ~http_client();
 
+    static void* operator new(std::size_t count);
+    static void operator delete(void* ptr);
+
     void url(std::string new_url);
 
     void get(std::string target, std::string body = "", bool stream = false);

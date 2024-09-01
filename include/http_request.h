@@ -1,5 +1,6 @@
 #include <map>
 #include <string>
+#include <allocator.h>
 
 class http_request {
     friend class http_client;
@@ -14,6 +15,6 @@ public:
 
 private:
     std::string method_, target_, body_;
-    std::map<std::string, std::string> headers;
+    std::map<std::string, std::string, std::less<std::string>, web::allocator<std::pair<const std::string, std::string>>> headers;
     bool ready_ = false;
 };

@@ -404,7 +404,7 @@ void mqtt::packet::dup(bool to_set) {
 }
 
 void* mqtt::packet::operator new(std::size_t count) {
-    return web::malloc(count * sizeof(mqtt::packet));
+    return web::malloc(count);
 }
 
 void mqtt::packet::operator delete(void* ptr) {

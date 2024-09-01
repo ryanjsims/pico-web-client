@@ -30,6 +30,9 @@ namespace mqtt {
         );
         ~client();
 
+        static void* operator new(std::size_t count);
+        static void operator delete(void* ptr);
+
         void connect();
         void connect(std::u8string username, std::u8string password);
         void connect(std::u8string username, std::u8string password, uint16_t keep_alive);

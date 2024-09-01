@@ -1,6 +1,7 @@
 #include <mqtt_client.h>
 #include <mqtt/packets.h>
 
+#include <allocator.h>
 #include <logger.h>
 #include <tcp_client.h>
 #include <tcp_tls_client.h>
@@ -41,6 +42,14 @@ mqtt::client::~client() {
         delete m_tcp;
     }
     critical_section_deinit(&generate_id_section);
+}
+
+void* mqtt::client::operator new(std::size_t count) {
+    return web::malloc(count);
+}
+
+void mqtt::client::operator delete(void* ptr) {
+    web::free(ptr);
 }
 
 void mqtt::client::connect() {
