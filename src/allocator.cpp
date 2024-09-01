@@ -4,9 +4,6 @@
 #include <math.h>
 #include <cstring>
 
-#include "pico/mutex.h"
-auto_init_mutex(web_malloc_mutex);
-
 #ifndef WEB_ALLOC_CHUNK_SIZE
 #define WEB_ALLOC_CHUNK_SIZE 16
 #endif
@@ -129,31 +126,25 @@ void web::impl::free(void* ptr) {
 
 void* web::malloc(std::size_t size) {
     void* to_return = nullptr;
-    bool success = mutex_enter_timeout_us(&web_malloc_mutex, 100);
-    if(success) {
-        to_return = web::impl::malloc(size);
-        mutex_exit(&web_malloc_mutex);
-    }
+    mutex_enter_blocking(&web_malloc_mutex);
+    to_return = web::impl::malloc(size);
+    mutex_exit(&web_malloc_mutex);
     return to_return;
 }
 
 void* web::calloc(std::size_t count, std::size_t size) {
     void* to_return = nullptr;
-    bool success = mutex_enter_timeout_us(&web_malloc_mutex, 100);
-    if(success) {
-        to_return = web::impl::calloc(count, size);
-        mutex_exit(&web_malloc_mutex);
-    }
+    mutex_enter_blocking(&web_malloc_mutex);
+    to_return = web::impl::calloc(count, size);
+    mutex_exit(&web_malloc_mutex);
     return to_return;
 }
 
 void* web::realloc(void* ptr, std::size_t new_size) {
     void* to_return = nullptr;
-    bool success = mutex_enter_timeout_us(&web_malloc_mutex, 100);
-    if(success) {
-        to_return = web::impl::realloc(ptr, new_size);
-        mutex_exit(&web_malloc_mutex);
-    }
+    mutex_enter_blocking(&web_malloc_mutex);
+    to_return = web::impl::realloc(ptr, new_size);
+    mutex_exit(&web_malloc_mutex);
     return to_return;
 }
 
