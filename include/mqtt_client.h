@@ -10,6 +10,7 @@
 #include <pico/sync.h>
 
 #include <mqtt/packets.h>
+#include <allocator.h>
 
 #include "lwip/err.h"
 

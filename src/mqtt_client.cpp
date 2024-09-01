@@ -1,7 +1,6 @@
 #include <mqtt_client.h>
 #include <mqtt/packets.h>
 
-#include <allocator.h>
 #include <logger.h>
 #include <tcp_client.h>
 #include <tcp_tls_client.h>
