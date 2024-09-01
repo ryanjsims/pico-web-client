@@ -115,7 +115,7 @@ namespace mqtt {
         repeating_timer_t queue_timer;
         critical_section_t generate_id_section;
 
-        std::vector<subscription_t> m_subscriptions;
+        std::vector<subscription_t, web::allocator<subscription_t>> m_subscriptions;
         std::function<void()> m_user_connected;
 
         bool parse_url();
