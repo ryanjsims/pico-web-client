@@ -5,6 +5,7 @@
 #include <queue>
 #include <vector>
 
+#include <pico/async_context.h>
 #include <pico/time.h>
 #include <pico/sync.h>
 
@@ -14,6 +15,9 @@
 
 #define MQTT_PORT 1883
 #define MQTT_SECURE_PORT 8883
+
+#define MQTT_RESEND_TIMEOUT 30000
+#define MQTT_CONNECT_TIMEOUT 30000
 
 class tcp_base;
 namespace mqtt {
@@ -82,6 +86,7 @@ namespace mqtt {
             disconnected,
             disconnecting,
             connecting,
+            connect_sent,
             connected
         };
 
@@ -112,7 +117,8 @@ namespace mqtt {
         uint32_t m_last_send_time, m_last_recv_time;
         int m_port;
         state m_state;
-        repeating_timer_t queue_timer;
+        async_when_pending_worker_t m_pending_worker;
+        async_at_time_worker_t m_timeout_worker, m_keepalive_worker, m_unacked_worker;
         critical_section_t generate_id_section;
 
         std::vector<subscription_t, web::allocator<subscription_t>> m_subscriptions;
@@ -121,8 +127,16 @@ namespace mqtt {
         bool parse_url();
 
         static bool queue_timer_callback(repeating_timer_t* rt);
+        static void async_context_pending_callback(async_context_t *context, async_when_pending_worker_t *worker);
+        static void async_context_keepalive_callback(async_context_t *context, async_at_time_worker_t *worker);
+        static void async_context_timeout_callback(async_context_t *context, async_at_time_worker_t *worker);
+        static void async_context_unacked_callback(async_context_t *context, async_at_time_worker_t *worker);
         void handle_packet_queues();
+        void handle_unacked_queue();
+        void handle_keepalive();
+        void enforce_keepalive();
 
+        void queue_packet(packet*);
         void send_packet(packet*);
         void recv_packet();
         void resend_first_unacked();

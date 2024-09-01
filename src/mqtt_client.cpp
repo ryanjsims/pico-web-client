@@ -9,6 +9,10 @@
 #include <cstring>
 #include "LUrlParser.h"
 
+#include <pico/cyw43_arch.h>
+
+static async_context* mqtt_async_context = nullptr;
+
 namespace mqtt {
     uint16_t get_u16(std::span<uint8_t> data) {
         return (uint16_t)((data[0] << 8) | data[1]);
@@ -28,13 +32,23 @@ mqtt::client::client(
     , m_client_id(u8"")
     , m_current_packet_id(1)
     , m_user_connected([](){})
+    , m_pending_worker{nullptr, mqtt::client::async_context_pending_callback, false, (void*)this}
+    , m_keepalive_worker{nullptr, mqtt::client::async_context_keepalive_callback, 0, (void*)this}
+    , m_timeout_worker{nullptr, mqtt::client::async_context_timeout_callback, 0, (void*)this}
+    , m_unacked_worker{nullptr, mqtt::client::async_context_unacked_callback, 0, (void*)this}
 {
     critical_section_init(&generate_id_section);
+    if(mqtt_async_context == nullptr) {
+        mqtt_async_context = cyw43_arch_async_context();
+    }
+
     parse_url();
     m_tcp->on_receive(std::bind(&mqtt::client::tcp_recv_callback, this));
     m_tcp->on_send(std::bind(&mqtt::client::tcp_send_callback, this, std::placeholders::_1));
     m_tcp->on_closed(std::bind(&mqtt::client::tcp_closed_callback, this));
     m_tcp->on_error(std::bind(&mqtt::client::tcp_error_callback, this, std::placeholders::_1));
+
+    async_context_add_when_pending_worker(mqtt_async_context, &m_pending_worker);
 }
 
 mqtt::client::~client() {
@@ -42,6 +56,9 @@ mqtt::client::~client() {
         delete m_tcp;
     }
     critical_section_deinit(&generate_id_section);
+    async_context_remove_when_pending_worker(mqtt_async_context, &m_pending_worker);
+    async_context_remove_at_time_worker(mqtt_async_context, &m_timeout_worker);
+    async_context_remove_at_time_worker(mqtt_async_context, &m_keepalive_worker);
 }
 
 void* mqtt::client::operator new(std::size_t count) {
@@ -88,6 +105,7 @@ void mqtt::client::connect(std::u8string username, std::span<uint8_t> password, 
         username, 
         password
     };
+    // Don't use queue_packet here since we want to wait until we're connected to send the packet
     m_send_queue.push(packet.release());
 
     m_keep_alive = keep_alive;
@@ -95,12 +113,13 @@ void mqtt::client::connect(std::u8string username, std::span<uint8_t> password, 
     m_state = mqtt::client::state::connecting;
     m_tcp->on_connected(std::bind(&mqtt::client::tcp_connected_callback, this));
     m_tcp->connect(m_host, m_port);
+    async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_timeout_worker, MQTT_CONNECT_TIMEOUT);
 }
 
 void mqtt::client::disconnect(reason_code reason) {
     mqtt::disconnect_packet packet(reason);
-    m_send_queue.push(packet.release());
     m_state = state::disconnecting;
+    queue_packet(packet.release());
 }
 
 void mqtt::client::subscribe(std::u8string topic_filter, subscribe_packet::options_t options, publish_handler_t handler) {
@@ -109,7 +128,7 @@ void mqtt::client::subscribe(std::u8string topic_filter, subscribe_packet::optio
 
 void mqtt::client::subscribe(std::span<std::u8string> topic_filters, std::span<subscribe_packet::options_t> options, publish_handler_t handler) {
     // Block until connected
-    while(m_state == state::connecting) {
+    while(m_state == state::connecting || m_state == state::connect_sent) {
         sleep_ms(100);
     }
     subscription_t sub = {
@@ -141,7 +160,7 @@ void mqtt::client::subscribe(std::span<std::u8string> topic_filters, std::span<s
     properties.push_back(subscription_id);
 
     subscribe_packet packet(generate_packet_id(), topic_filters, options, properties);
-    m_send_queue.push(packet.release());
+    queue_packet(packet.release());
 }
 
 void mqtt::client::unsubscribe(std::u8string topic_filter) {
@@ -151,7 +170,7 @@ void mqtt::client::unsubscribe(std::u8string topic_filter) {
 void mqtt::client::unsubscribe(std::span<std::u8string> topic_filters) {
     unsubscribe_packet packet(generate_packet_id(), topic_filters);
 
-    m_send_queue.push(packet.release());
+    queue_packet(packet.release());
 }
 
 void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, std::span<uint8_t> data) {
@@ -160,7 +179,7 @@ void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, s
 
 void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, std::u8string content_type, std::span<uint8_t> data) {
     // Block until connected
-    while(m_state == state::connecting) {
+    while(m_state == state::connecting || m_state == state::connect_sent) {
         sleep_ms(100);
     }
 
@@ -179,7 +198,7 @@ void mqtt::client::publish(std::u8string topic, publish_packet::flags_t flags, s
         publish_packet packet(flags, topic, generate_packet_id(), data);
         to_send = packet.release();
     }
-    m_send_queue.push(to_send);
+    queue_packet(to_send);
 }
 
 bool mqtt::client::connected() {
@@ -252,12 +271,6 @@ bool mqtt::client::parse_url() {
     return true;
 }
 
-bool mqtt::client::queue_timer_callback(repeating_timer_t* rt) {
-    mqtt::client* client = (mqtt::client*)rt->user_data;
-    client->handle_packet_queues();
-    return true;
-}
-
 mqtt::packet* mqtt::client::get_next_packet() {
     packet* to_send = m_send_queue.front();
     m_send_queue.pop();
@@ -286,42 +299,103 @@ mqtt::packet* mqtt::client::get_next_packet() {
     return to_send;
 }
 
+bool mqtt::client::queue_timer_callback(repeating_timer_t* rt) {
+    mqtt::client* client = (mqtt::client*)rt->user_data;
+    client->handle_packet_queues();
+    return true;
+}
+
+void mqtt::client::async_context_pending_callback(async_context_t *context, async_when_pending_worker_t *worker) {
+    mqtt::client* client = (mqtt::client*)worker->user_data;
+    client->handle_packet_queues();
+}
+
 void mqtt::client::handle_packet_queues() {
+    if(!m_tcp->connected()) {
+        return;
+    }
     packet* to_send;
-    if(m_tcp->connected() && m_send_queue.size() > 0 && (to_send = get_next_packet())) {
+    if(m_send_queue.size() > 0 && (to_send = get_next_packet())) {
         send_packet(to_send);
     } 
-    if(m_tcp->connected() && m_recv_queue.size() > 0) {
+    if(m_recv_queue.size() > 0) {
         recv_packet();
-    }
-    uint32_t now = to_ms_since_boot(get_absolute_time());
-    if(m_tcp->connected() && m_unacked_sends.size() > 0 && ((m_unacked_sends.front().first > now) || ((now - m_unacked_sends.front().first) > 30000))) {
-        resend_first_unacked();
-    }
-    if(m_tcp->connected() && m_keep_alive && (now < m_last_send_time || (now - m_last_send_time) > ((uint32_t)m_keep_alive) * 800)) {
-        // When we're 80% of the way to the keep alive time without sending
-        // a packet, or if millisecond time has rolled over, enqueue a pingreq packet
-        // m_keep_alive is in seconds, now and m_last_send_time are in milliseconds
-        if(m_unacked_sends.size() > 0) {
-            resend_first_unacked();
-        } else {
-            pingreq_packet ping{};
-            m_send_queue.push(ping.release());
-        }
-    }
-    if(m_tcp->connected() && m_state == state::connected && m_keep_alive && (now > m_last_recv_time) && (now - m_last_recv_time) > (((uint32_t)m_keep_alive) * 1000)) {
-        disconnect(mqtt::reason_code::ERROR_TIMEOUT);
     }
 }
 
+void mqtt::client::async_context_unacked_callback(async_context_t *context, async_at_time_worker_t *worker) {
+    mqtt::client* client = (mqtt::client*)worker->user_data;
+    client->handle_unacked_queue();
+}
+
+void mqtt::client::handle_unacked_queue() {
+    if(!m_tcp->connected()) {
+        return;
+    }
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    while(m_unacked_sends.size() > 0 && m_unacked_sends.front().first <= now) {
+        resend_first_unacked();
+    }
+    if(m_unacked_sends.size() > 0) {
+        uint32_t ms_until_send = m_unacked_sends.front().first - now;
+        async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_unacked_worker, ms_until_send);
+    }
+}
+
+void mqtt::client::async_context_keepalive_callback(async_context_t *context, async_at_time_worker_t *worker) {
+    mqtt::client* client = (mqtt::client*)worker->user_data;
+    client->handle_keepalive();
+}
+
+void mqtt::client::handle_keepalive() {
+    if(m_unacked_sends.size() > 0) {
+        resend_first_unacked();
+    } else {
+        pingreq_packet ping{};
+        queue_packet(ping.release());
+    }
+    async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_keepalive_worker, m_keep_alive * 800);
+}
+
+void mqtt::client::async_context_timeout_callback(async_context_t *context, async_at_time_worker_t *worker) {
+    mqtt::client* client = (mqtt::client*)worker->user_data;
+    client->enforce_keepalive();
+}
+
+void mqtt::client::enforce_keepalive() {
+    if(this->connected()) {
+        disconnect(mqtt::reason_code::ERROR_TIMEOUT);
+    } else if(m_state == state::connecting || m_state == state::connect_sent) {
+        m_tcp->close(ERR_TIMEOUT);
+    }
+}
+
+void mqtt::client::queue_packet(mqtt::packet* to_queue) {
+    m_send_queue.push(to_queue);
+    async_context_set_work_pending(mqtt_async_context, &m_pending_worker);
+}
+
 void mqtt::client::send_packet(mqtt::packet* to_send) {
-    std::span<uint8_t> data = to_send->serialize();
-    dump_bytes_debug(data.data(), data.size());
-    m_tcp->write(data);
+    mqtt::packet_type masked = to_send->masked();
+    if(
+        (m_state == state::connected && masked != mqtt::packet_type::CONNECT)
+        || (m_state == state::connecting && masked == mqtt::packet_type::CONNECT) 
+        || (m_state == state::disconnecting && masked == mqtt::packet_type::DISCONNECT)
+    ) {
+        std::span<uint8_t> data = to_send->serialize();
+        dump_bytes_debug(data.data(), data.size());
+        m_tcp->write(data);
+    }
+
+    if(m_state == state::connecting && masked == mqtt::packet_type::CONNECT) {
+        m_state = state::connect_sent;
+    }
 
     uint32_t now = to_ms_since_boot(get_absolute_time());
     m_last_send_time = now;
-    mqtt::packet_type masked = to_send->masked();
+    if(m_keep_alive) {
+        async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_keepalive_worker, m_keep_alive * 800);
+    }
     switch(masked) {
     case mqtt::packet_type::PUBLISH:
         if(to_send->qos() == 0) {
@@ -337,6 +411,9 @@ void mqtt::client::send_packet(mqtt::packet* to_send) {
     case mqtt::packet_type::SUBSCRIBE:
     case mqtt::packet_type::UNSUBSCRIBE:
     case mqtt::packet_type::PINGREQ:
+        if(m_unacked_sends.size() == 0) {
+            async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_unacked_worker, MQTT_RESEND_TIMEOUT);
+        }
         m_unacked_sends.push({now, to_send});
         break;
     case mqtt::packet_type::DISCONNECT:
@@ -422,7 +499,7 @@ void mqtt::client::resend_first_unacked() {
         unacked->dup(true);
     }
     info("Resending unacked packet, last sent at %d\n", timestamp);
-    m_send_queue.push(unacked);
+    queue_packet(unacked);
 }
 
 mqtt::packet* mqtt::client::get_unacked(packet_type type, uint16_t packet_id) {
@@ -498,7 +575,7 @@ void mqtt::client::resend_reconnect() {
         switch(unacked.second->masked()) {
         case packet_type::PUBLISH:
         case packet_type::PUBREL:
-            m_send_queue.push(unacked.second);
+            queue_packet(unacked.second);
             break;
         default:
             m_unacked_sends.push(unacked);
@@ -563,10 +640,16 @@ void mqtt::client::handle_connack(mqtt::packet* packet) {
     std::vector<const property*> server_keep_alive = ack.properties()[property_name::KEEP_ALIVE];
     if(server_keep_alive.size() == 1) {
         m_keep_alive = server_keep_alive[0]->as_twobyte();
+        if(m_keep_alive) {
+            async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_keepalive_worker, 800 * m_keep_alive);
+            async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_timeout_worker, 1000 * m_keep_alive);
+        } else {
+            async_context_remove_at_time_worker(mqtt_async_context, &m_timeout_worker);
+        }
         debug("mqtt::client::handle_connack: Set keep alive to %d seconds\n", m_keep_alive);
     }
 
-    if(ack.reason() == reason_code::SUCCESS && m_state == state::connecting) {
+    if(ack.reason() == reason_code::SUCCESS && m_state == state::connect_sent) {
         m_state = state::connected;
         info("MQTT connected with client id '%.*s'\n\tMax QoS:  %d\n\tRecv Max: %d\n", m_client_id.size(), m_client_id.data(), m_max_qos, m_send_quota);
         m_user_connected();
@@ -610,11 +693,11 @@ void mqtt::client::handle_publish(mqtt::packet* packet) {
 
     if(packet->qos() == 1) {
         puback_packet ack(packet_id, reason);
-        m_send_queue.push(ack.release());
+        queue_packet(ack.release());
     } else if(packet->qos() == 2) {
         pubrec_packet rec(packet_id, reason);
         mqtt::packet *to_send = rec.release();
-        m_send_queue.push(to_send);
+        queue_packet(to_send);
     }
     delete packet;
 }
@@ -646,8 +729,7 @@ void mqtt::client::handle_pubrec(mqtt::packet* packet) {
         info("m_send_quota is now: %d\n", m_send_quota);
     } else {
         pubrel_packet rel(packet_id, reason);
-        mqtt::packet* to_send = rel.release();
-        m_send_queue.push(to_send);
+        queue_packet(rel.release());
     }
     delete packet;
 }
@@ -664,7 +746,7 @@ void mqtt::client::handle_pubrel(mqtt::packet* packet) {
     }
 
     pubcomp_packet comp(packet_id, reason);
-    m_send_queue.push(comp.release());
+    queue_packet(comp.release());
     delete packet;
 }
 
@@ -815,7 +897,7 @@ void mqtt::client::handle_auth(mqtt::packet* packet) {
 
 void mqtt::client::tcp_connected_callback() {
     debug1("mqtt::client::tcp_connected_callback\n");
-    add_repeating_timer_ms(50, mqtt::client::queue_timer_callback, this, &queue_timer);
+    async_context_set_work_pending(mqtt_async_context, &m_pending_worker);
     // Set poll to every 1 second to speed up sends
     m_tcp->on_poll(1, [](){});
 }
@@ -835,6 +917,10 @@ void mqtt::client::tcp_recv_callback() {
         return;
     }
     m_recv_queue.push(received);
+    async_context_set_work_pending(mqtt_async_context, &m_pending_worker);
+    if(m_keep_alive) {
+        async_context_add_at_time_worker_in_ms(mqtt_async_context, &m_timeout_worker, m_keep_alive * 1000);
+    }
 }
 
 void mqtt::client::tcp_send_callback(uint16_t len) {
@@ -845,7 +931,10 @@ void mqtt::client::tcp_send_callback(uint16_t len) {
 
 void mqtt::client::tcp_closed_callback() {
     debug1("mqtt::client::tcp_closed_callback\n");
-    cancel_repeating_timer(&queue_timer);
+    if(m_keep_alive) {
+        async_context_remove_at_time_worker(mqtt_async_context, &m_keepalive_worker);
+        async_context_remove_at_time_worker(mqtt_async_context, &m_timeout_worker);
+    }
     m_state = state::disconnected;
     // Finish up the packet queue to get the disconnect/connack packets with the disconnect reason
     while(m_recv_queue.size() > 0) {
@@ -855,7 +944,10 @@ void mqtt::client::tcp_closed_callback() {
 
 void mqtt::client::tcp_error_callback(err_t err) {
     debug1("mqtt::client::tcp_error_callback\n");
-    error("Got error: '%.*s'\n", tcp_perror(err).size(), tcp_perror(err).data());
-    cancel_repeating_timer(&queue_timer);
+    error("mqtt::client::tcp_error_callback: Got error: %.*s\n", tcp_perror(err).size(), tcp_perror(err).data());
+    if(m_keep_alive) {
+        async_context_remove_at_time_worker(mqtt_async_context, &m_keepalive_worker);
+        async_context_remove_at_time_worker(mqtt_async_context, &m_timeout_worker);
+    }
     m_state = state::disconnected;
 }
